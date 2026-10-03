@@ -1,3 +1,4 @@
+using System.Text;
 using CaiBotWindy.Commands;
 using CaiBotWindy.Data;
 using CaiBotWindy.Net;
@@ -85,10 +86,15 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         App.Ready = true;
 
         // ── 3. QQ 事件 ────────────────────────────────────────────────────────
+        // 存一份适配器引用：白名单校验跑在 HTTP/WebSocket 线程上，拿不到 CommandArgs，
+        // 只能通过这里主动往群里推登录确认卡片。
+        App.Adaptor = Adaptor;
+
         if (Adaptor is QQOfficialAdaptor qq)
         {
             qq.OnGroupAddRobot += OnGroupAddRobotAsync;
             qq.OnGroupDelRobot += OnGroupDelRobotAsync;
+            qq.OnGroupJoinRequest += OnGroupJoinRequestAsync;
         }
 
         // 指令表里匹配不到时兜底回一句话，避免私聊 / 群 AT 出现「发了没反应」。
@@ -203,6 +209,119 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 入群申请审核（对应 <c>GroupJoinReview = auto</c>）。
+    /// <para>命中云黑（昵称或 OpenID）→ 自动拒绝并拉黑；其余自动通过。
+    /// 默认只在控制台留痕、不打扰群管理员，需要群里留档就把 <c>GroupJoinNotify</c> 打开。</para>
+    /// <para>入群问题、回答、平台给的风险提示都会带进通知里，方便事后追查。</para>
+    /// </summary>
+    private static async Task OnGroupJoinRequestAsync(QQOfficialGroupJoinRequestEventArgs args)
+    {
+        if (!string.Equals(App.Config.GroupJoinReview, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        string who = DescribeJoinUser(args);
+        bool banned = IsJoinBlacklisted(args);
+
+        try
+        {
+            if (banned)
+            {
+                await args.RejectAsync("你在云黑名单中，如有疑问请联系群管理员", addToMemberBlacklist: true);
+                Message.Yellow($"[CaiBotWindy] 已自动拒绝入群申请：{who}（云黑命中）");
+            }
+            else
+            {
+                await args.ApproveAsync();
+                Message.Green($"[CaiBotWindy] 已自动通过入群申请：{who}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Message.Red($"[CaiBotWindy] 处理入群申请失败（{who}）: {ex.Message}");
+            return;
+        }
+
+        if (App.Config.GroupJoinNotify)
+        {
+            await NotifyJoinResultAsync(args, banned);
+        }
+    }
+
+    private static string DescribeJoinUser(QQOfficialGroupJoinRequestEventArgs args)
+    {
+        if (!string.IsNullOrEmpty(args.UserName))
+        {
+            return args.UserName;
+        }
+
+        return string.IsNullOrEmpty(args.MemberOpenId) ? "未知用户" : args.MemberOpenId;
+    }
+
+    /// <summary>云黑判定：先查机器人级黑名单，再查本群黑名单。昵称与 OpenID 任一命中即算。</summary>
+    private static bool IsJoinBlacklisted(QQOfficialGroupJoinRequestEventArgs args)
+    {
+        GroupRecord? global = DataStore.FindGroup(DataStore.GlobalScope);
+        if (global is not null && MatchesBlacklist(global, args.UserName, args.MemberOpenId))
+        {
+            return true;
+        }
+
+        GroupRecord? group = DataStore.FindGroup(args.GroupOpenId);
+        return group is not null && MatchesBlacklist(group, args.UserName, args.MemberOpenId);
+    }
+
+    private static bool MatchesBlacklist(GroupRecord group, string userName, string openId)
+    {
+        bool byName = !string.IsNullOrEmpty(userName) &&
+                      group.Blacklist.Any(item => string.Equals(item, userName, StringComparison.OrdinalIgnoreCase));
+
+        bool byOpenId = !string.IsNullOrEmpty(openId) &&
+                        group.BlacklistOpenIds.Any(item => item == openId);
+
+        return byName || byOpenId;
+    }
+
+    /// <summary>把入群申请的处理结果发到群里（可选，默认关闭）。</summary>
+    private static async Task NotifyJoinResultAsync(QQOfficialGroupJoinRequestEventArgs args, bool banned)
+    {
+        try
+        {
+            StringBuilder builder = new();
+            builder.Append("# 🚪 入群申请\n");
+            builder.Append($"- 用户：**{DescribeJoinUser(args)}**\n");
+            builder.Append($"- 结果：{(banned ? "❌ 已自动拒绝（云黑命中）" : "✅ 已自动通过")}\n");
+
+            if (!string.IsNullOrEmpty(args.ApplySource))
+            {
+                builder.Append($"- 来源：{args.ApplySource}\n");
+            }
+
+            if (!string.IsNullOrEmpty(args.RiskTips))
+            {
+                builder.Append($"- ⚠️ 风险提示：{args.RiskTips}\n");
+            }
+
+            if (args.ReviewQuestions.Count > 0)
+            {
+                builder.Append('\n');
+                foreach (QQOfficialJoinRequestQuestion qa in args.ReviewQuestions)
+                {
+                    builder.Append($"> 问题：{qa.Question}\n> 回答：{qa.Answer}\n");
+                }
+            }
+
+            builder.Append("\n> 自动审核结果，如需人工复核请查看机器人控制台日志。");
+            await args.SendToGroup(new MessageContent().AddMarkdown(builder.ToString()));
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[CaiBotWindy] 入群结果通知发送失败: {ex.Message}");
+        }
     }
 
     public override void Dispose()

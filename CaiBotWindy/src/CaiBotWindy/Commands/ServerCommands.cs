@@ -58,6 +58,74 @@ public static class ServerCommands
             MenuKit.Keyboard(("刷新", "/在线"), ("进度查询", "/进度查询"), ("查背包", "/查背包 "), ("菜单", "/菜单")));
     }
 
+    // ── 在线总览（跨服务器汇总）────────────────────────────────────────────────
+
+    [Command("在线总览", "查看本群所有服务器的在线玩家", MessageScene.Group)]
+    [Command("在线总览", "查看本群所有服务器的在线玩家", MessageScene.GroupAt)]
+    public static async Task OnlineOverviewAsync(CommandArgs args)
+    {
+        string? groupOpenId = args.Message.GroupId;
+        if (string.IsNullOrEmpty(groupOpenId))
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 该指令只能在群聊中使用");
+            return;
+        }
+
+        List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
+        if (servers.Count == 0)
+        {
+            await CommandHelpers.ReplyAsync(args,
+                "# ⛔ 本群还没有绑定服务器\n" +
+                "> 在服务器控制台查看绑定码，然后发送 <qqbot-cmd-input text=\"%2F添加服务器 \" show=\"添加服务器\" reference=\"false\" />");
+            return;
+        }
+
+        List<OnlineServerView> views = [];
+        int totalOnline = 0;
+        int totalMax = 0;
+
+        foreach (ServerRecord record in servers)
+        {
+            string name = string.IsNullOrWhiteSpace(record.ServerName)
+                ? $"服务器 {record.DisplayIndex}"
+                : record.ServerName;
+
+            if (!App.Hub.TryResolve(groupOpenId, record.DisplayIndex, out ServerSession session, out _))
+            {
+                views.Add(new OnlineServerView(name, false, 0, 0, []));
+                continue;
+            }
+
+            try
+            {
+                BotPacket? packet = await session.RequestAsync(PackageType.PlayerList, new JObject(), CancellationToken.None);
+                if (packet is null)
+                {
+                    views.Add(new OnlineServerView(name, false, 0, 0, []));
+                    continue;
+                }
+
+                JObject payload = packet.Payload;
+                int current = payload.GetInt("current_online");
+                int max = payload.GetInt("max_online");
+
+                totalOnline += current;
+                totalMax += max;
+                views.Add(new OnlineServerView(name, true, current, max, payload.GetStringList("player_list")));
+            }
+            catch (Exception ex)
+            {
+                // 单台服务器超时不该让整张表作废 —— 标成离线继续查下一台。
+                Message.Yellow($"[在线总览] 服务器 {name} 查询失败: {ex.Message}");
+                views.Add(new OnlineServerView(name, false, 0, 0, []));
+            }
+        }
+
+        await CommandHelpers.ReplyAsync(args,
+            MenuKit.RenderOnlineOverview(views, totalOnline, totalMax),
+            MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+    }
+
     // ── 世界进度（progress）─────────────────────────────────────────────────────
 
     [Command("进度查询", "查询世界进度", MessageScene.Group)]

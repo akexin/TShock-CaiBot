@@ -67,6 +67,19 @@ public sealed class PluginConfig
     /// <summary>数据存储目录（相对 Windy 运行目录）。</summary>
     public string StorageDirectory { get; set; } = "Config/CaiBotWindy";
 
+    /// <summary>
+    /// 入群申请的审核策略。
+    /// <list type="bullet">
+    ///   <item><c>auto</c>（默认）—— 命中云黑自动拒绝并拉黑，其余自动通过；</item>
+    ///   <item><c>manual</c> —— 机器人不自动处理，一律转发到群里等管理员。</item>
+    ///   <item><c>off</c> —— 完全不介入，交给 QQ 群自身的审核设置。</item>
+    /// </list>
+    /// </summary>
+    public string GroupJoinReview { get; set; } = "auto";
+
+    /// <summary>自动处理入群申请后是否往群里发一条结果通知。默认关闭（只写控制台，不打扰管理员）。</summary>
+    public bool GroupJoinNotify { get; set; }
+
     /// <summary>是否在控制台打印收到的每个数据包（排障用）。</summary>
     public bool Debug { get; set; }
 }

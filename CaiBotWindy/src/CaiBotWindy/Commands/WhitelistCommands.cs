@@ -169,6 +169,7 @@ public static class WhitelistCommands
             {
                 builder.Append($"\n- 角色：**{attempt.PlayerName}**\n");
                 builder.Append($"  - IP：{attempt.Ip}\n");
+                builder.Append($"  - 触发原因：{WhitelistService.DescribeReason(attempt.Reason)}\n");
                 builder.Append($"  - 申请时间：{attempt.CreatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\n");
                 builder.Append($"  - 验证码：`{attempt.Code}`\n");
             }
@@ -179,9 +180,77 @@ public static class WhitelistCommands
         }
 
         string code = args.GetOrDefault(0).Trim();
-        (bool success, string message) = WhitelistService.Approve(code, args.Message.GroupId ?? "");
+        (bool success, string message) = WhitelistService.Approve(code);
         await CommandHelpers.ReplyAsync(args,
             success ? $"# ✅ 登录成功\n{message}" : $"# ⛔ 登录失败\n> {message}");
+    }
+
+    // ── 登录确认 / 拒绝（群里那张确认卡片的两个按钮就是发这两条指令）──────────────
+
+    [Command("确认登录", "批准一条登录申请", MessageScene.Group)]
+    [Command("确认登录", "批准一条登录申请", MessageScene.GroupAt)]
+    public static async Task ConfirmLoginAsync(CommandArgs args)
+    {
+        await ReviewLoginAsync(args, approve: true);
+    }
+
+    [Command("拒绝登录", "拒绝一条登录申请", MessageScene.Group)]
+    [Command("拒绝登录", "拒绝一条登录申请", MessageScene.GroupAt)]
+    public static async Task RejectLoginAsync(CommandArgs args)
+    {
+        await ReviewLoginAsync(args, approve: false);
+    }
+
+    /// <summary>
+    /// 处理一条登录申请。具备权限的只有两类人：群管理员（/OwnerOpenIds 里配的也算）、
+    /// 以及该角色绑定的本人 —— 别人不能替别人批准登录。
+    /// </summary>
+    private static async Task ReviewLoginAsync(CommandArgs args, bool approve)
+    {
+        string verb = approve ? "确认登录" : "拒绝登录";
+
+        if (!args.Require(1))
+        {
+            await CommandHelpers.ReplyAsync(args, $"# 🍥 {verb}\n> 用法：`/{verb} <验证码>`");
+            return;
+        }
+
+        string code = args.GetOrDefault(0).Trim();
+        LoginAttempt? attempt = DataStore.FindLoginAttempt(code);
+        if (attempt is null)
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 没有找到该验证码\n> 可能已被处理或已过期，让对方重新进服即可。");
+            return;
+        }
+
+        bool isAdmin = Permissions.IsAdmin(args);
+        bool isSelf = !string.IsNullOrEmpty(attempt.OpenId) && attempt.OpenId == args.Message.AuthorId;
+
+        if (!isAdmin && !isSelf)
+        {
+            await CommandHelpers.ReplyAsync(args,
+                "# ⛔ 权限不足\n" +
+                $"> 这条申请属于角色 **{attempt.PlayerName}**。\n" +
+                "> 只有群管理员或该角色绑定的本人可以处理。");
+            return;
+        }
+
+        if (approve)
+        {
+            (bool ok, string message) = WhitelistService.Approve(code);
+            await CommandHelpers.ReplyAsync(args, ok ? $"# ✅ 已批准登录\n> {message}" : $"# ⛔ 操作失败\n> {message}");
+            return;
+        }
+
+        // 拒绝时默认只作废本次申请；管理员额外加「拉黑」参数才会写进云黑名单。
+        // 默认不拉黑是有意的 —— 玩家换手机误触「拒绝」不该直接变成封号。
+        bool blacklist = isAdmin &&
+                         args.Parameters.Length > 1 &&
+                         args.GetOrDefault(1).Trim() is "拉黑" or "黑名单" or "ban";
+
+        (bool rejected, string rejectedMessage) = WhitelistService.Reject(code, blacklist);
+        await CommandHelpers.ReplyAsync(args,
+            rejected ? $"# ✅ 已拒绝登录\n> {rejectedMessage}" : $"# ⛔ 操作失败\n> {rejectedMessage}");
     }
 
     // ── 签到 / 金币 ─────────────────────────────────────────────────────────────

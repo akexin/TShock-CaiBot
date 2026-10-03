@@ -9,6 +9,19 @@ namespace CaiBotWindy.Services;
 /// <summary>
 /// QQ 官方 Markdown + 按钮界面的构建工具，以及各类数据包的中文渲染。
 /// </summary>
+/// <summary>「在线总览」里一个服务器的快照。</summary>
+/// <param name="Name">服务器名（缺失时用序号兜底）。</param>
+/// <param name="Online">适配插件是否已连接。</param>
+/// <param name="Current">当前在线人数。</param>
+/// <param name="Max">人数上限。</param>
+/// <param name="Players">在线玩家名列表。</param>
+public sealed record OnlineServerView(
+    string Name,
+    bool Online,
+    int Current,
+    int Max,
+    IReadOnlyList<string> Players);
+
 public static class MenuKit
 {
     private static string assetRoot = "";
@@ -295,6 +308,39 @@ public static class MenuKit
             {
                 builder.Append($"{i + 1}. {players[i]}\n");
             }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// 跨服务器在线总览。
+    /// <para>逐个服务器发 <c>/在线</c> 在「一个群绑了好几个服」时太啰嗦，这里汇总成一张表 ——
+    /// 顶部给总数，下面按服务器分组列出在线玩家。</para>
+    /// </summary>
+    public static string RenderOnlineOverview(
+        IReadOnlyList<OnlineServerView> servers,
+        int totalOnline,
+        int totalMax)
+    {
+        System.Text.StringBuilder builder = new();
+        builder.Append("# 🍥 在线总览\n");
+        builder.Append($"▸ 当前在线：**{totalOnline} / {totalMax}**  ·  服务器 {servers.Count} 个\n");
+
+        foreach (OnlineServerView server in servers)
+        {
+            builder.Append($"\n**『{server.Name}』**");
+
+            if (!server.Online)
+            {
+                builder.Append("〔 离线 〕\n");
+                continue;
+            }
+
+            builder.Append($"〔 {server.Current} / {server.Max} 〕\n");
+            builder.Append(server.Players.Count == 0
+                ? "> 无人在线\n"
+                : string.Join(' ', server.Players.Select(name => $"[{name}]")) + "\n");
         }
 
         return builder.ToString();

@@ -33,8 +33,14 @@ public sealed class LoginAttempt
 
     public string Uuid { get; set; } = "";
 
-    /// <summary>6 位登录验证码，玩家在群里发送 <c>/登录 &lt;验证码&gt;</c> 批准。</summary>
+    /// <summary>6 位登录验证码，管理员在群里点「确认」按钮批准（等价于发送 <c>/确认登录 &lt;验证码&gt;</c>）。</summary>
     public string Code { get; set; } = "";
+
+    /// <summary>触发本次确认的原因：<c>device</c>（换了设备）/ <c>ip</c>（换了网络）/ <c>both</c>（都换了）。</summary>
+    public string Reason { get; set; } = "";
+
+    /// <summary>确认消息是否已推送到群里 —— 玩家反复重连时不能每次都刷一条。</summary>
+    public bool Notified { get; set; }
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }
@@ -100,6 +106,12 @@ public sealed class GroupRecord
     /// <summary>群黑名单（OpenID）。</summary>
     public List<string> BlacklistOpenIds { get; set; } = [];
 
+    /// <summary>黑名单（IP）—— 云黑维度之一：封 IP 比封角色名更难绕过。</summary>
+    public List<string> BlacklistIps { get; set; } = [];
+
+    /// <summary>黑名单（设备 UUID）—— 云黑维度之一：换号不换客户端也照样拦得住。</summary>
+    public List<string> BlacklistUuids { get; set; } = [];
+
     /// <summary>是否在在线列表里附带世界进度。</summary>
     public bool ShowProcessInPlayerList { get; set; } = true;
 
@@ -135,6 +147,16 @@ public sealed class UserRecord
     public long Coins { get; set; }
 
     public string DeviceId { get; set; } = "";
+
+    /// <summary>
+    /// 已授权过的设备 UUID（只保留最近若干条，避免无限增长）。
+    /// <para>与 <see cref="Ips"/> 分开记录，才能区分「换了设备」和「换了网络」—— 两者都要确认，
+    /// 但提示文案不同，管理员看到原因才好判断是不是本人。</para>
+    /// </summary>
+    public List<string> Uuids { get; set; } = [];
+
+    /// <summary>历史登录过的 IP（保留最近若干条）。</summary>
+    public List<string> Ips { get; set; } = [];
 }
 
 /// <summary>数据存储：读取 / 落盘 / 查询。</summary>
@@ -274,6 +296,8 @@ public static class DataStore
                 existing.TotalSignInDays = record.TotalSignInDays;
                 existing.Coins = record.Coins;
                 existing.DeviceId = record.DeviceId;
+                existing.Uuids = record.Uuids;
+                existing.Ips = record.Ips;
             }
 
             Save();

@@ -323,7 +323,13 @@ public static class GroupCommands
         await CommandHelpers.ReplyAsync(args, $"# ✅ 已解封 **{name}**");
     }
 
-    // ── 全局黑名单（仅所有者）──────────────────────────────────────────────────
+    // ── 云黑名单（仅所有者）────────────────────────────────────────────────────
+    //
+    // 云黑分四个维度，因为单封角色名根本拦不住人 —— 换个名字就回来了。
+    //   角色名：/全局封禁 <角色名>        最容易绕过
+    //   IP    ：/全局封禁 ip <IP>         换台机器就绕过
+    //   设备  ：/全局封禁 设备 <UUID>     换个号、不换客户端也照样拦得住
+    //   QQ    ：/全局封禁 qq <OpenID>     封真人，最彻底（也最需要谨慎）
 
     [Command("全局黑名单", "查看机器人级黑名单", MessageScene.Group)]
     [Command("全局黑名单", "查看机器人级黑名单", MessageScene.GroupAt)]
@@ -335,12 +341,42 @@ public static class GroupCommands
         }
 
         GroupRecord global = DataStore.GetOrCreateGlobal();
-        await CommandHelpers.ReplyAsync(args,
-            "# 🍥 全局黑名单\n" +
-            (global.Blacklist.Count == 0
-                ? "> 为空。"
-                : string.Join('\n', global.Blacklist.Select(item => $"- {item}"))) +
-            "\n\n> 用法：`/全局封禁 <角色名>` / `/全局解封 <角色名>`");
+
+        StringBuilder builder = new();
+        builder.Append("# 🍥 云黑名单\n");
+        AppendBlacklistSection(builder, "角色名", global.Blacklist);
+        AppendBlacklistSection(builder, "IP", global.BlacklistIps);
+        AppendBlacklistSection(builder, "设备", global.BlacklistUuids);
+        AppendBlacklistSection(builder, "QQ", global.BlacklistOpenIds);
+
+        int total = global.Blacklist.Count + global.BlacklistIps.Count +
+                    global.BlacklistUuids.Count + global.BlacklistOpenIds.Count;
+        if (total == 0)
+        {
+            builder.Append("> 为空。\n");
+        }
+
+        builder.Append(
+            "\n> 封禁：`/全局封禁 <角色名>`、`/全局封禁 ip <IP>`、`/全局封禁 设备 <UUID>`、`/全局封禁 qq <OpenID>`\n" +
+            "> 解封把「封禁」换成「解封」即可。");
+        await CommandHelpers.ReplyAsync(args, builder.ToString());
+    }
+
+    private static void AppendBlacklistSection(StringBuilder builder, string title, List<string> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        builder.Append($"\n**{title}**（{items.Count}）\n");
+        builder.Append(string.Join('\n', items.Take(20).Select(item => $"- {item}")));
+        if (items.Count > 20)
+        {
+            builder.Append($"\n- …另有 {items.Count - 20} 条");
+        }
+
+        builder.Append('\n');
     }
 
     [Command("全局封禁", "加入机器人级黑名单", MessageScene.Group)]
@@ -354,19 +390,34 @@ public static class GroupCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 全局封禁\n> 用法：`/全局封禁 <角色名>`");
+            await CommandHelpers.ReplyAsync(args,
+                "# 🍥 全局封禁\n" +
+                "- `/全局封禁 <角色名>`\n" +
+                "- `/全局封禁 ip <IP>`\n" +
+                "- `/全局封禁 设备 <UUID>`\n" +
+                "- `/全局封禁 qq <OpenID>`");
             return;
         }
 
-        string name = args.GetOrDefault(0).Trim();
-        GroupRecord global = DataStore.GetOrCreateGlobal();
-        if (!global.Blacklist.Any(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase)))
+        (string kind, string value, string label) = ParseBanTarget(args);
+        if (string.IsNullOrEmpty(value))
         {
-            global.Blacklist.Add(name);
-            DataStore.SaveServerChange();
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 封禁内容不能为空。");
+            return;
         }
 
-        await CommandHelpers.ReplyAsync(args, $"# ✅ 已全局封禁 **{name}**（所有群生效）");
+        GroupRecord global = DataStore.GetOrCreateGlobal();
+        List<string> target = ResolveBlacklist(global, kind);
+
+        if (target.Any(item => string.Equals(item, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            await CommandHelpers.ReplyAsync(args, $"# 🍥 {label}**{value}** 已在云黑名单中。");
+            return;
+        }
+
+        target.Add(value);
+        DataStore.SaveServerChange();
+        await CommandHelpers.ReplyAsync(args, $"# ✅ 已全局封禁{label}**{value}**（所有群生效）");
     }
 
     [Command("全局解封", "移出机器人级黑名单", MessageScene.Group)]
@@ -380,21 +431,57 @@ public static class GroupCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 全局解封\n> 用法：`/全局解封 <角色名>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 全局解封\n> 用法同 `/全局封禁`，例如 `/全局解封 ip 1.2.3.4`");
             return;
         }
 
-        string name = args.GetOrDefault(0).Trim();
+        (string kind, string value, string label) = ParseBanTarget(args);
         GroupRecord global = DataStore.GetOrCreateGlobal();
-        int removed = global.Blacklist.RemoveAll(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase));
+        List<string> target = ResolveBlacklist(global, kind);
 
+        int removed = target.RemoveAll(item => string.Equals(item, value, StringComparison.OrdinalIgnoreCase));
         if (removed > 0)
         {
             DataStore.SaveServerChange();
         }
 
         await CommandHelpers.ReplyAsync(args,
-            removed > 0 ? $"# ✅ 已全局解封 **{name}**" : "# ⛔ 该角色不在全局黑名单中。");
+            removed > 0 ? $"# ✅ 已全局解封{label}**{value}**" : $"# ⛔ {label}**{value}** 不在云黑名单中。");
+    }
+
+    private static List<string> ResolveBlacklist(GroupRecord global, string kind)
+    {
+        return kind switch
+        {
+            "ip" => global.BlacklistIps,
+            "uuid" => global.BlacklistUuids,
+            "openid" => global.BlacklistOpenIds,
+            _ => global.Blacklist,
+        };
+    }
+
+    /// <summary>
+    /// 解析封禁目标。<c>/全局封禁 ip 1.2.3.4</c> 是「维度 + 值」两段写法，
+    /// 只给一段时按角色名处理 —— 保持与旧指令完全兼容。
+    /// </summary>
+    private static (string Kind, string Value, string Label) ParseBanTarget(CommandArgs args)
+    {
+        string first = args.GetOrDefault(0).Trim();
+
+        if (args.Parameters.Length > 1)
+        {
+            switch (first.ToLowerInvariant())
+            {
+                case "ip":
+                    return ("ip", args.GetOrDefault(1).Trim(), " IP ");
+                case "设备" or "uuid" or "device":
+                    return ("uuid", args.GetOrDefault(1).Trim(), "设备 ");
+                case "qq" or "openid":
+                    return ("openid", args.GetOrDefault(1).Trim(), " QQ ");
+            }
+        }
+
+        return ("name", first, "角色 ");
     }
 
     // ── 权限请求 ────────────────────────────────────────────────────────────────
