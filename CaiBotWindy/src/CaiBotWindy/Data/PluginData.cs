@@ -20,6 +20,12 @@ public sealed class PluginData
     /// <summary>未授权设备的登录申请（对应 CaiBot 的登录码流程）。</summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<LoginAttempt> LoginAttempts { get; set; } = [];
+
+    /// <summary>
+    /// 同一个注册基准 IP / 设备最多允许的账号数（默认 2）。
+    /// 管理员可用 <c>/注册限制</c> 实时调整，改动即存。
+    /// </summary>
+    public int RegisterLimitPerIp { get; set; } = 2;
 }
 
 /// <summary>一次未授权设备的登录申请。</summary>
@@ -36,8 +42,14 @@ public sealed class LoginAttempt
     /// <summary>6 位登录验证码，管理员在群里点「确认」按钮批准（等价于发送 <c>/确认登录 &lt;验证码&gt;</c>）。</summary>
     public string Code { get; set; } = "";
 
-    /// <summary>触发本次确认的原因：<c>device</c>（换了设备）/ <c>ip</c>（换了网络）/ <c>both</c>（都换了）。</summary>
+    /// <summary>
+    /// 触发本次确认的原因：<c>device</c>（换了设备）/ <c>ip</c>（换了网络）/ <c>both</c>（都换了）/
+    /// <c>ip-taken</c>（该 IP 已被别的角色注册）/ <c>device-taken</c>（该设备已被别的角色注册）。
+    /// </summary>
     public string Reason { get; set; } = "";
+
+    /// <summary>补充说明（例如占用该 IP 的角色名），显示在确认卡片上供管理员判断。</summary>
+    public string Note { get; set; } = "";
 
     /// <summary>确认消息是否已推送到群里 —— 玩家反复重连时不能每次都刷一条。</summary>
     public bool Notified { get; set; }
@@ -157,6 +169,35 @@ public sealed class UserRecord
 
     /// <summary>历史登录过的 IP（保留最近若干条）。</summary>
     public List<string> Ips { get; set; } = [];
+
+    // ── 邮箱注册 ────────────────────────────────────────────────────────────────
+
+    /// <summary>绑定的 QQ 邮箱（玩家自助注册时填写）。</summary>
+    public string Email { get; set; } = "";
+
+    /// <summary>邮箱是否已通过验证码验证。未验证的记录不允许进服。</summary>
+    public bool EmailVerified { get; set; }
+
+    /// <summary>待验证的验证码（注册流程的中间状态，验证通过后清空）。</summary>
+    public string PendingCode { get; set; } = "";
+
+    /// <summary>验证码过期时间。</summary>
+    public DateTime? PendingCodeExpiresAtUtc { get; set; }
+
+    /// <summary>
+    /// 注册来源：<c>email</c>（玩家自助邮箱注册）/ <c>admin</c>（管理员手动添加）/
+    /// <c>legacy</c>（升级前就存在的老记录）。
+    /// </summary>
+    public string RegisterSource { get; set; } = "";
+
+    /// <summary>
+    /// 该角色第一次成功进服时的 IP。用于「一个 IP 不能重复注册」的判定 ——
+    /// 后续比对也以它为基准。
+    /// </summary>
+    public string RegisterIp { get; set; } = "";
+
+    /// <summary>该角色第一次成功进服时的设备 UUID，用于「一个设备不能重复注册」的判定。</summary>
+    public string RegisterUuid { get; set; } = "";
 }
 
 /// <summary>数据存储：读取 / 落盘 / 查询。</summary>
@@ -278,6 +319,49 @@ public static class DataStore
         }
     }
 
+    /// <summary>按邮箱查找绑定 —— 用于「一个邮箱只能注册一个角色」。</summary>
+    public static UserRecord? FindUserByEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return null;
+        }
+
+        lock (SyncRoot)
+        {
+            return data.Users.FirstOrDefault(item =>
+                string.Equals(item.Email, email, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>找出把该 IP 作为注册基准的角色 —— 用于「一个 IP 不能重复注册」。</summary>
+    public static UserRecord? FindUserByRegisterIp(string ip)
+    {
+        if (string.IsNullOrWhiteSpace(ip))
+        {
+            return null;
+        }
+
+        lock (SyncRoot)
+        {
+            return data.Users.FirstOrDefault(item => item.RegisterIp == ip);
+        }
+    }
+
+    /// <summary>找出把该设备作为注册基准的角色 —— 用于「一个设备不能重复注册」。</summary>
+    public static UserRecord? FindUserByRegisterUuid(string uuid)
+    {
+        if (string.IsNullOrWhiteSpace(uuid))
+        {
+            return null;
+        }
+
+        lock (SyncRoot)
+        {
+            return data.Users.FirstOrDefault(item => item.RegisterUuid == uuid);
+        }
+    }
+
     public static void UpsertUser(UserRecord record)
     {
         lock (SyncRoot)
@@ -298,6 +382,13 @@ public static class DataStore
                 existing.DeviceId = record.DeviceId;
                 existing.Uuids = record.Uuids;
                 existing.Ips = record.Ips;
+                existing.Email = record.Email;
+                existing.EmailVerified = record.EmailVerified;
+                existing.PendingCode = record.PendingCode;
+                existing.PendingCodeExpiresAtUtc = record.PendingCodeExpiresAtUtc;
+                existing.RegisterSource = record.RegisterSource;
+                existing.RegisterIp = record.RegisterIp;
+                existing.RegisterUuid = record.RegisterUuid;
             }
 
             Save();

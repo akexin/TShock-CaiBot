@@ -5,6 +5,7 @@ using CaiBotWindy.Data;
 using CaiBotWindy.Protocol;
 using Newtonsoft.Json.Linq;
 using Windy.SDK;
+using Windy.SDK.Adaptor;
 
 namespace CaiBotWindy.Net;
 
@@ -145,6 +146,10 @@ public sealed class ServerSession
                 // 适配插件每 60 秒发送一次心跳，仅用于刷新在线时间。
                 break;
 
+            case PackageType.ServerLog:
+                HandleServerLog(packet);
+                break;
+
             case PackageType.Unknown:
             case PackageType.Error:
                 break;
@@ -175,6 +180,42 @@ public sealed class ServerSession
             $"[CaiBotWindy] 服务器已上线: {Record.ServerName} | 群 {Record.GroupOpenId} | " +
             $"Terraria {Record.GameVersion} | {Record.CoreVersion} | 适配插件 {Record.PluginVersion} | " +
             $"白名单 {(Record.EnableWhitelist ? "开启" : "关闭")}");
+    }
+
+    /// <summary>
+    /// 服务端事件日志（背包监控等）→ 广播到绑定群。
+    /// 走异步：这条回包发生在 WebSocket 读线程上，绝不能同步等 QQ 接口。
+    /// </summary>
+    private void HandleServerLog(BotPacket packet)
+    {
+        string message = packet.Payload.GetString("message");
+        if (string.IsNullOrEmpty(message))
+        {
+            return;
+        }
+
+        string groupOpenId = Record.GroupOpenId;
+        string serverName = string.IsNullOrWhiteSpace(Record.ServerName) ? "服务器" : Record.ServerName;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                Adaptor? adaptor = App.Adaptor;
+                if (adaptor is null)
+                {
+                    return;
+                }
+
+                await adaptor.SendMessage(
+                    SendTarget.Group(groupOpenId),
+                    new MessageContent().AddMarkdown($"# 📡 {serverName} · 事件\n{message}"));
+            }
+            catch (Exception ex)
+            {
+                Message.Yellow($"[ServerLog] 转发失败: {ex.Message}");
+            }
+        });
     }
 
     private void HandleWhitelist(BotPacket packet)

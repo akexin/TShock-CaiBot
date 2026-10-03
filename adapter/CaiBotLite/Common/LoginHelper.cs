@@ -239,10 +239,20 @@ internal static class LoginHelper
                 }
                 case WhiteListResult.NotInWhitelist:
                 {
-                    TShock.Log.ConsoleInfo($"[Cai白名单]玩家[{player.Name}](IP: {player.IP})没有添加白名单...");
+                    TShock.Log.ConsoleInfo($"[Cai白名单]玩家[{player.Name}](IP: {player.IP})没有注册...");
                     player.SilentKickInProgress = true;
-                    player.Disconnect($"[Cai白名单]没有添加白名单!\n" +
-                                      $"请在群{groupId}内发送\"/添加白名单 角色名字'\"");
+                    player.Disconnect($"[Cai白名单]你还没有注册!\n" +
+                                      $"请在群{groupId}内发送\n" +
+                                      $"「/注册 <QQ邮箱> {player.Name}」");
+                    return false;
+                }
+                case WhiteListResult.NotRegistered:
+                {
+                    TShock.Log.ConsoleInfo($"[Cai白名单]玩家[{player.Name}](IP: {player.IP})邮箱注册尚未完成验证...");
+                    player.SilentKickInProgress = true;
+                    player.Disconnect($"[Cai白名单]注册还没有完成!\n" +
+                                      $"请查收邮箱里的验证码，并在群{groupId}内发送\n" +
+                                      $"「/注册验证 <验证码>」");
                     return false;
                 }
                 case WhiteListResult.InGroupBlacklist:
@@ -262,9 +272,9 @@ internal static class LoginHelper
                 case WhiteListResult.NeedLogin:
                 {
                     TShock.Log.ConsoleInfo($"[Cai白名单]玩家[{player.Name}](IP: {player.IP})使用未授权的设备...");
-                    player.Disconnect($"[Cai白名单]未授权设备!\n" +
-                                      $"在群{groupId}内发送\"/登录\"\n" +
-                                      $"以批准此设备登录");
+                    player.Disconnect($"[Cai白名单]这台设备还没有得到确认!\n" +
+                                      $"群里已发出确认请求，\n" +
+                                      $"请让管理员点击「确认登录」后重新进入");
 
                     return false;
                 }

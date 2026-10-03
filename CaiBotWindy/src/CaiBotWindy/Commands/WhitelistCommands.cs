@@ -17,16 +17,24 @@ public static class WhitelistCommands
         ("查询金币", "/查询金币"),
         ("帮助", "/帮助"));
 
-    // ── 绑定 ────────────────────────────────────────────────────────────────────
+    // ── 管理员绑定（玩家自助走 /注册）────────────────────────────────────────────
+    //
+    // 这三个指令原先对所有人生效，等于「报个名字就能过」—— 没有验证，也能用来绕过邮箱注册
+    // （把自己改绑到任意未占用的角色名）。因此全部收归管理员。
 
-    [Command("添加白名单", "绑定游戏角色名", MessageScene.Group, "绑定")]
-    [Command("添加白名单", "绑定游戏角色名", MessageScene.GroupAt, "绑定")]
-    [Command("添加白名单", "绑定游戏角色名", MessageScene.Private, "绑定")]
+    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.Group, "绑定")]
+    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.GroupAt, "绑定")]
+    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.Private, "绑定")]
     public static async Task BindAsync(CommandArgs args)
     {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 添加白名单\n> 用法：`/添加白名单 <角色名字>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 添加白名单\n> 用法：" + MenuKit.CmdInput("/添加白名单 ", "添加白名单 <角色名字>"));
             return;
         }
 
@@ -50,7 +58,7 @@ public static class WhitelistCommands
         {
             await CommandHelpers.ReplyAsync(args,
                 $"# ⚠️ 你已经绑定了 **{existing.PlayerName}**\n" +
-                $"> 如需换绑，请使用 `/修改白名单 {playerName}`。");
+                $"> 如需换绑，请联系管理员处理（换绑会清空设备授权，需要重新确认）。");
             return;
         }
 
@@ -67,14 +75,19 @@ public static class WhitelistCommands
             WhitelistKeyboard);
     }
 
-    [Command("修改白名单", "重新绑定游戏角色名", MessageScene.Group, "重新绑定")]
-    [Command("修改白名单", "重新绑定游戏角色名", MessageScene.GroupAt, "重新绑定")]
-    [Command("修改白名单", "重新绑定游戏角色名", MessageScene.Private, "重新绑定")]
+    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.Group, "重新绑定")]
+    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.GroupAt, "重新绑定")]
+    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.Private, "重新绑定")]
     public static async Task RebindAsync(CommandArgs args)
     {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 修改白名单\n> 用法：`/修改白名单 <新的角色名字>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 修改白名单\n> 用法：" + MenuKit.CmdInput("/修改白名单 ", "修改白名单 <新的角色名字>"));
             return;
         }
 
@@ -82,7 +95,7 @@ public static class WhitelistCommands
         if (existing is null)
         {
             await CommandHelpers.ReplyAsync(args,
-                "# ⛔ 你还没有添加白名单\n> 请先使用 `/添加白名单 <角色名>`。");
+                "# ⛔ 你还没有添加白名单\n> 请先使用 " + MenuKit.CmdInput("/添加白名单 ", "添加白名单 <角色名>") + "。");
             return;
         }
 
@@ -96,24 +109,56 @@ public static class WhitelistCommands
 
         string oldName = existing.PlayerName;
         existing.PlayerName = playerName;
-        // 换绑后设备需要重新授权，避免旧设备直接复用。
+
+        // 换绑等于换了身份：注册基准与历史设备 / IP 一并作废，
+        // 让下一次进服重新走一遍占用检查与确认，避免旧设备被直接复用到新角色上。
         existing.DeviceId = "";
+        existing.RegisterIp = "";
+        existing.RegisterUuid = "";
+        existing.Uuids.Clear();
+        existing.Ips.Clear();
         DataStore.UpsertUser(existing);
 
         await CommandHelpers.ReplyAsync(args,
             $"# ✅ 绑定已更新\n- 原角色：{oldName}\n- 新角色：**{playerName}**\n\n" +
-            "> 由于更换了角色，该设备需要重新登录授权。");
+            "> 换绑后该设备需要重新完成一次登录确认。");
     }
 
-    [Command("删除白名单", "解除自己的白名单绑定", MessageScene.Group)]
-    [Command("删除白名单", "解除自己的白名单绑定", MessageScene.GroupAt)]
-    [Command("删除白名单", "解除自己的白名单绑定", MessageScene.Private)]
+    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.Group)]
+    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.GroupAt)]
+    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.Private)]
     public static async Task UnbindAsync(CommandArgs args)
     {
+        // 带角色名 = 管理员代删指定玩家的绑定（找回/清理违规账号用）。
+        if (args.Require(1))
+        {
+            if (!await Permissions.RequireAdminAsync(args))
+            {
+                return;
+            }
+
+            string playerName = args.GetOrDefault(0).Trim();
+            UserRecord? target = DataStore.FindUserByPlayerName(playerName);
+            if (target is null)
+            {
+                await CommandHelpers.ReplyAsync(args, $"# ⛔ 没有找到角色 **{playerName}** 的绑定记录。");
+                return;
+            }
+
+            DataStore.RemoveUser(target.OpenId);
+            await CommandHelpers.ReplyAsync(args,
+                $"# ✅ 已删除 **{target.PlayerName}** 的绑定\n" +
+                $"- 邮箱：{RegisterService.Mask(target.Email)}\n" +
+                $"- 注册 IP：`{target.RegisterIp}`\n" +
+                "> 该角色下次进服会被要求重新注册。");
+            return;
+        }
+
+        // 无参数 = 解绑自己。
         UserRecord? existing = DataStore.FindUser(args.Message.AuthorId);
         if (existing is null)
         {
-            await CommandHelpers.ReplyAsync(args, "# ⛔ 你还没有添加白名单。");
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 你还没有绑定角色。");
             return;
         }
 
@@ -130,7 +175,7 @@ public static class WhitelistCommands
         if (existing is null)
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 我的白名单\n> 你还没有绑定角色。\n> 使用 `/添加白名单 <角色名>` 绑定。",
+                "# 🍥 我的白名单\n> 你还没有绑定角色。\n> 使用 " + MenuKit.CmdInput("/添加白名单 ", "添加白名单 <角色名>") + " 绑定。",
                 WhitelistKeyboard);
             return;
         }
@@ -159,7 +204,7 @@ public static class WhitelistCommands
             {
                 await CommandHelpers.ReplyAsync(args,
                     "# 🍥 设备登录\n> 你当前没有待批准的设备。\n" +
-                    "> 如果进服时被提示「未授权设备」，请直接再次发送 `/登录`。");
+                    $"> 如果进服时被提示「未授权设备」，请直接再次发送 {MenuKit.CmdInput("/登录")}。");
                 return;
             }
 
@@ -174,7 +219,7 @@ public static class WhitelistCommands
                 builder.Append($"  - 验证码：`{attempt.Code}`\n");
             }
 
-            builder.Append("\n> 确认是你本人后，发送 `/登录 <验证码>` 完成批准。");
+            builder.Append("\n> 确认是你本人后，发送 " + MenuKit.CmdInput("/登录 ", "登录 <验证码>") + " 完成批准。");
             await CommandHelpers.ReplyAsync(args, builder.ToString());
             return;
         }
@@ -211,7 +256,7 @@ public static class WhitelistCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, $"# 🍥 {verb}\n> 用法：`/{verb} <验证码>`");
+            await CommandHelpers.ReplyAsync(args, $"# 🍥 {verb}\n> 用法：{MenuKit.CmdInput($"/{verb} ", $"{verb} <验证码>")}");
             return;
         }
 
@@ -264,7 +309,7 @@ public static class WhitelistCommands
         if (user is null)
         {
             await CommandHelpers.ReplyAsync(args,
-                "# ⛔ 请先使用 `/添加白名单 <角色名>` 绑定角色后再签到。");
+                "# ⛔ 请先使用 " + MenuKit.CmdInput("/添加白名单 ", "添加白名单 <角色名>") + " 绑定角色后再签到。");
             return;
         }
 
@@ -322,7 +367,7 @@ public static class WhitelistCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 查询玩家\n> 用法：`/查询玩家 <角色名>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 查询玩家\n> 用法：" + MenuKit.CmdInput("/查询玩家 ", "查询玩家 <角色名>"));
             return;
         }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using CaiBotWindy.Data;
 using CaiBotWindy.Net;
@@ -126,6 +127,183 @@ public static class ServerCommands
             MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
     }
 
+    // ── 连接延迟（ping）────────────────────────────────────────────────────────
+
+    /// <summary>延迟采样次数。单次测量会被抖动带偏，多测几次取平均才有参考价值。</summary>
+    private const int PingSamples = 3;
+
+    [Command("延迟", "测量与服务器的连接延迟", MessageScene.Group)]
+    [Command("延迟", "测量与服务器的连接延迟", MessageScene.GroupAt)]
+    [Command("ping", "测量与服务器的连接延迟", MessageScene.Group)]
+    [Command("ping", "测量与服务器的连接延迟", MessageScene.GroupAt)]
+    public static async Task PingAsync(CommandArgs args)
+    {
+        string? groupOpenId = args.Message.GroupId;
+        if (string.IsNullOrEmpty(groupOpenId))
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 该指令只能在群聊中使用");
+            return;
+        }
+
+        List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
+        if (servers.Count == 0)
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 本群还没有绑定服务器");
+            return;
+        }
+
+        // 不带序号就测全部 —— 探测包是空的，开销可以忽略，一次看完比逐个查方便。
+        int index = CommandHelpers.ParseServerIndex(args, 0);
+        List<ServerRecord> targets = index > 0
+            ? servers.Where(item => item.DisplayIndex == index).ToList()
+            : servers;
+
+        if (targets.Count == 0)
+        {
+            await CommandHelpers.ReplyAsync(args, $"# ⛔ 序号 {index} 对应的服务器不存在");
+            return;
+        }
+
+        StringBuilder builder = new();
+        builder.Append("# 🍥 连接延迟\n");
+
+        foreach (ServerRecord record in targets)
+        {
+            string name = string.IsNullOrWhiteSpace(record.ServerName)
+                ? $"服务器 {record.DisplayIndex}"
+                : record.ServerName;
+
+            builder.Append($"\n**『{name}』**\n");
+
+            if (!App.Hub.TryResolve(groupOpenId, record.DisplayIndex, out ServerSession session, out _))
+            {
+                builder.Append("- 状态：⚪ 离线\n");
+                continue;
+            }
+
+            // 旧版适配插件不认识 ping 包（会把整包判为非法并丢弃），与其白等三次超时，不如直接说清楚。
+            if (!SupportsPing(record.PluginVersion))
+            {
+                builder.Append("- 状态：⚠️ 适配插件版本过低\n");
+                builder.Append($"> 当前 `{record.PluginVersion}`，延迟探测需要 **2026.10.3** 及以上。\n");
+                continue;
+            }
+
+            List<long> samples = [];
+            for (int round = 0; round < PingSamples; round++)
+            {
+                // 探测包正常是毫秒级回来的，3 秒足够；这样旧插件不回包时也不会把指令卡住 30 秒。
+                using CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
+                Stopwatch watch = Stopwatch.StartNew();
+                try
+                {
+                    BotPacket? packet = await session.RequestAsync(PackageType.Ping, new JObject(), cts.Token);
+                    watch.Stop();
+                    if (packet is not null)
+                    {
+                        samples.Add(watch.ElapsedMilliseconds);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    watch.Stop();
+                    Message.Yellow($"[延迟] {name} 第 {round + 1} 次探测失败: {ex.Message}");
+                }
+            }
+
+            if (samples.Count == 0)
+            {
+                builder.Append("- 状态：⚠️ 探测无响应\n");
+                builder.Append("> 适配插件可能还是旧版本（延迟指令需要 2026.10.3 及以上）。\n");
+                continue;
+            }
+
+            samples.Sort();
+            long min = samples[0];
+            long max = samples[^1];
+            double avg = samples.Average();
+
+            builder.Append($"- 延迟：**{Math.Round(avg)} ms**　{PingGrade(avg)}\n");
+            builder.Append($"- 最小 / 平均 / 最大：{min} / {Math.Round(avg)} / {max} ms\n");
+            builder.Append($"- 采样：{samples.Count} 次\n");
+        }
+
+        await CommandHelpers.ReplyAsync(args, builder.ToString(),
+            MenuKit.Keyboard(("刷新", "/延迟"), ("在线总览", "/在线总览"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+    }
+
+    /// <summary>适配插件是否支持 ping 包（2026.10.3 起）。</summary>
+    private static bool SupportsPing(string pluginVersion)
+    {
+        // 版本号拿不到就放行，交给实际探测判断 —— 免得字段缺失时误报「版本过低」。
+        if (!Version.TryParse(pluginVersion, out Version? version))
+        {
+            return true;
+        }
+
+        return version >= new Version(2026, 10, 3);
+    }
+
+    /// <summary>延迟质量评级。阈值按「玩家机器 → 本机服务器」的常见水平划分。</summary>
+    private static string PingGrade(double milliseconds)
+    {
+        return milliseconds switch
+        {
+            < 50 => "🟢 优秀",
+            < 100 => "🟢 良好",
+            < 200 => "🟡 一般",
+            < 400 => "🟠 偏高",
+            _ => "🔴 很差",
+        };
+    }
+
+    // ── 物品监控（远程调 TShock 侧 /cblmonitor）────────────────────────────────
+
+    [Command("物品监控", "查看或设置背包物品监控阈值", MessageScene.Group)]
+    [Command("物品监控", "查看或设置背包物品监控阈值", MessageScene.GroupAt)]
+    public static async Task ItemMonitorAsync(CommandArgs args)
+    {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
+        List<string> parts = [.. args.Parameters];
+        int index = 0;
+        if (parts.Count >= 2 && parts[^1].Length <= 2 && int.TryParse(parts[^1], out int parsedIndex) && parsedIndex > 0)
+        {
+            index = parsedIndex;
+            parts.RemoveAt(parts.Count - 1);
+        }
+
+        ServerSession? session = await CommandHelpers.ResolveServerAsync(args, index);
+        if (session is null)
+        {
+            return;
+        }
+
+        // 参数原样拼成 TShock 控制台指令，规则只存在插件侧一份，避免两边同步的麻烦。
+        string tail = string.Join(' ', parts);
+        string command = "/cblmonitor" + (tail.Length > 0 ? " " + tail : "");
+
+        JObject request = new()
+        {
+            ["command"] = command,
+            ["group_open_id"] = session.GroupOpenId,
+            ["user_open_id"] = args.Message.AuthorId,
+        };
+
+        BotPacket? packet = await CommandHelpers.RequestAsync(args, session, PackageType.CallCommand, request);
+        if (packet is null)
+        {
+            return;
+        }
+
+        string output = packet.Payload.GetString("output", "（服务端没有返回输出）");
+        await CommandHelpers.ReplyAsync(args,
+            $"# 🎒 物品监控\n{output}\n\n> 命中阈值时机器人会把事件广播到本群。\n> `add <物品ID> <阈值>` 新增　`del <物品ID>` 移除　无参数 = 列出全部");
+    }
+
     // ── 世界进度（progress）─────────────────────────────────────────────────────
 
     [Command("进度查询", "查询世界进度", MessageScene.Group)]
@@ -207,7 +385,7 @@ public static class ServerCommands
         if (!args.Require(1))
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 查背包\n> 用法：`/查背包 <玩家名> [服务器序号]`");
+                "# 🍥 查背包\n> 用法：" + MenuKit.CmdInput("/查背包 ", "查背包 <玩家名> [服务器序号]"));
             return;
         }
 
@@ -410,7 +588,7 @@ public static class ServerCommands
             await CommandHelpers.ReplyAsync(args,
                 "# 🍥 排行榜\n> 服务器不支持该排行类型。\n" +
                 $"> 支持：{string.Join(" / ", supported)}\n" +
-                "> 用法：`/排行 <类型> [参数]`",
+                "> 用法：" + MenuKit.CmdInput("/排行 ", "排行 <类型> [参数]"),
                 MenuKit.Keyboard(("BOSS 排行", "/排行 boss "), ("死亡排行", "/排行 死亡"),
                     ("在线排行", "/排行 在线"), ("钓鱼排行", "/排行 钓鱼")));
             return;
@@ -566,7 +744,7 @@ public static class ServerCommands
         if (!args.Require(1))
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 远程指令\n> 用法：`/远程指令 <指令内容> [服务器序号]`\n> 例如：`/远程指令 /time noon`");
+                "# 🍥 远程指令\n> 用法：" + MenuKit.CmdInput("/远程指令 ", "远程指令 <指令内容> [服务器序号]") + "\n> 例如：`/远程指令 /time noon`");
             return;
         }
 

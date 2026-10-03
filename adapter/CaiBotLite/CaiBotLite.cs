@@ -47,6 +47,7 @@ public class CaiBotLite(Main game) : TerrariaPlugin(game)
         ProgressControlSupport.Init();
         WebsocketManager.Init();
         Commands.ChatCommands.Add(new Command("caibotlite.admin", CaiBotCommand, "caibotlite", "cbl"));
+        Commands.ChatCommands.Add(new Command("caibotlite.admin", ItemMonitor.HandleCommand, "cblmonitor"));
         ClearCharacterInfoForActivePlayers();
     }
 
@@ -87,6 +88,15 @@ public class CaiBotLite(Main game) : TerrariaPlugin(game)
             }
 
             _timer = 0;
+        }
+
+        try
+        {
+            ItemMonitor.Scan();
+        }
+        catch (Exception ex)
+        {
+            TShock.Log.ConsoleError("[CaiBotLite] 物品监控扫描出错：" + ex);
         }
 
         _timer++;

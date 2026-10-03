@@ -129,7 +129,9 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
                         $"- 服务端：{session.Record.CoreVersion}\n" +
                         $"- 适配插件：{session.Record.PluginVersion}\n" +
                         $"- 白名单：{(session.Record.EnableWhitelist ? "开启" : "关闭")}\n\n" +
-                        "> 发送「/菜单」查看可用指令。"));
+                        "👇 点下面的指令会直接填进输入框，补上参数点发送就能执行：\n" +
+                        $"{MenuKit.CmdInput("/菜单")}　{MenuKit.CmdInput("/在线")}　{MenuKit.CmdInput("/进度查询")}　{MenuKit.CmdInput("/延迟")}\n" +
+                        $"{MenuKit.CmdInput("/注册 ", "注册 <QQ邮箱> <角色名>")}　{MenuKit.CmdInput("/服务器列表")}　{MenuKit.CmdInput("/服务器信息")}"));
             }
             catch (Exception ex)
             {

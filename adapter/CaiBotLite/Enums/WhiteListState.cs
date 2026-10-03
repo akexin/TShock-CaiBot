@@ -5,6 +5,7 @@ public enum WhiteListResult
     Accept,
     NeedLogin,
     NotInWhitelist,
+    NotRegistered,
     InGroupBlacklist,
     InBotBlacklist,
     Unknown

@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Collections.Generic;
 using System.IO;
 using TShockAPI;
 namespace CaiBotLite;
@@ -47,6 +48,10 @@ public class Config
     [JsonProperty("白名单拦截提示的群号")]
     public long GroupNumber;
 
+    /// <summary>背包物品监控规则：持有量达到阈值就通过 ServerLog 包上报机器人广播到群聊。</summary>
+    [JsonProperty("物品监控")]
+    public List<ItemMonitorRule> ItemMonitors = new();
+
 
     /// <summary>
     /// 将配置文件写入硬盘
@@ -80,4 +85,14 @@ public class Config
     }
 
     private static readonly JsonSerializerSettings JsonSettings = new () { Formatting = Formatting.Indented, ObjectCreationHandling = ObjectCreationHandling.Replace };
+}
+
+/// <summary>一条背包监控规则：某物品的持有量达到 <see cref="Count"/> 时上报。</summary>
+public class ItemMonitorRule
+{
+    [JsonProperty("物品ID")]
+    public int ItemId;
+
+    [JsonProperty("数量阈值")]
+    public int Count;
 }

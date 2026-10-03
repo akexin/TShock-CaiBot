@@ -58,8 +58,8 @@ public static class GroupCommands
         if (!args.Require(1))
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 添加管理\n> 用法：`/添加管理 <用户 OpenID>`\n" +
-                "> 让对方先发送 `/我的白名单`，其 OpenID 会显示在回复里。");
+                "# 🍥 添加管理\n> 用法：" + MenuKit.CmdInput("/添加管理 ", "添加管理 <用户 OpenID>") + "\n" +
+                $"> 让对方先发送 {MenuKit.CmdInput("/我的白名单")}，其 OpenID 会显示在回复里。");
             return;
         }
 
@@ -88,7 +88,7 @@ public static class GroupCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 删除管理\n> 用法：`/删除管理 <用户 OpenID>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 删除管理\n> 用法：" + MenuKit.CmdInput("/删除管理 ", "删除管理 <用户 OpenID>"));
             return;
         }
 
@@ -119,7 +119,7 @@ public static class GroupCommands
         if (!args.Require(1))
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 绑定父群\n> 用法：`/绑定父群 <父群 OpenID>`\n" +
+                "# 🍥 绑定父群\n> 用法：" + MenuKit.CmdInput("/绑定父群 ", "绑定父群 <父群 OpenID>") + "\n" +
                 "> 绑定后，白名单校验会沿父群链向上查找，父群开启白名单即可覆盖本群。");
             return;
         }
@@ -208,7 +208,7 @@ public static class GroupCommands
         {
             StringBuilder builder = new();
             builder.Append("# 🍥 群设置\n");
-            builder.Append("> 用法：`/设置 <项> <开|关>`\n\n");
+            builder.Append("> 用法：" + MenuKit.CmdInput("/设置 ", "设置 <项> <开|关>") + "\n\n");
             builder.Append($"- `whitelist` 本群白名单：**{(group.EnableWhitelist ? "开" : "关")}**\n");
             builder.Append($"- `progress` 在线列表附带进度：**{(group.ShowProcessInPlayerList ? "开" : "关")}**\n");
             builder.Append($"- `remote` 允许远程指令：**{(group.AllowRemoteCommand ? "开" : "关")}**\n");
@@ -277,7 +277,7 @@ public static class GroupCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 添加黑名单\n> 用法：`/添加黑名单 <角色名>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 添加黑名单\n> 用法：" + MenuKit.CmdInput("/添加黑名单 ", "添加黑名单 <角色名>"));
             return;
         }
 
@@ -305,7 +305,7 @@ public static class GroupCommands
 
         if (!args.Require(1))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 删除黑名单\n> 用法：`/删除黑名单 <角色名>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 删除黑名单\n> 用法：" + MenuKit.CmdInput("/删除黑名单 ", "删除黑名单 <角色名>"));
             return;
         }
 
@@ -392,10 +392,10 @@ public static class GroupCommands
         {
             await CommandHelpers.ReplyAsync(args,
                 "# 🍥 全局封禁\n" +
-                "- `/全局封禁 <角色名>`\n" +
-                "- `/全局封禁 ip <IP>`\n" +
-                "- `/全局封禁 设备 <UUID>`\n" +
-                "- `/全局封禁 qq <OpenID>`");
+                $"- {MenuKit.CmdInput("/全局封禁 ", "全局封禁 <角色名>")}\n" +
+                $"- {MenuKit.CmdInput("/全局封禁 ip ", "全局封禁 ip <IP>")}\n" +
+                $"- {MenuKit.CmdInput("/全局封禁 设备 ", "全局封禁 设备 <UUID>")}\n" +
+                $"- {MenuKit.CmdInput("/全局封禁 qq ", "全局封禁 qq <OpenID>")}");
             return;
         }
 

@@ -73,6 +73,18 @@ public static class MenuKit
             ("帮助", "/帮助"));
     }
 
+    /// <summary>
+    /// 生成「点击填入输入框」的指令标签：玩家点一下，指令就进到他的输入框，再点发送即可执行。
+    ///
+    /// <para><paramref name="fill"/> 是点击后真正填进输入框的内容 —— 带参数的指令建议只填
+    /// 指令前缀并留一个尾随空格（如 <c>"/注册 "</c>），让玩家自己补参数；
+    /// <paramref name="show"/> 是消息里显示出来的文字，缺省取 <paramref name="fill"/> 去掉尾随空格。</para>
+    /// </summary>
+    public static string CmdInput(string fill, string? show = null)
+    {
+        return Windy.SDK.Adaptor.QQOfficial.QQOfficialLabel.CommandInput(fill, show ?? fill.TrimEnd());
+    }
+
     /// <summary>图鉴检索结果过多时的候选列表。</summary>
     public static string CandidateList<T>(IReadOnlyList<T> matches, Func<T, string> name, Func<T, int> id, string command)
     {

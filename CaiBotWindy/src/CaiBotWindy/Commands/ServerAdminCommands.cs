@@ -28,7 +28,7 @@ public static class ServerAdminCommands
         {
             await CommandHelpers.ReplyAsync(args,
                 "# 🍥 添加服务器\n" +
-                "> 用法：`/添加服务器 <IP> <端口> <绑定码>`\n" +
+                "> 用法：" + MenuKit.CmdInput("/添加服务器 ", "添加服务器 <IP> <端口> <绑定码>") + "\n" +
                 "> 绑定码在**服务器控制台**中查看，TShock 侧的适配插件会打印：\n" +
                 "> `[CaiBotLite] 您的服务器绑定码为: 01234567`\n" +
                 "> 若没有看到，可在游戏内执行 `/cbl code` 重新生成。");
@@ -101,7 +101,7 @@ public static class ServerAdminCommands
             !int.TryParse(args.GetOrDefault(2), out int port) || port is <= 0 or > 65535)
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 修改服务器\n> 用法：`/修改服务器 <序号> <IP> <端口>`");
+                "# 🍥 修改服务器\n> 用法：" + MenuKit.CmdInput("/修改服务器 ", "修改服务器 <序号> <IP> <端口>"));
             return;
         }
 
@@ -140,7 +140,7 @@ public static class ServerAdminCommands
 
         if (!args.Require(1) || !args.TryGetInt(0, out int index))
         {
-            await CommandHelpers.ReplyAsync(args, "# 🍥 删除服务器\n> 用法：`/删除服务器 <序号>`");
+            await CommandHelpers.ReplyAsync(args, "# 🍥 删除服务器\n> 用法：" + MenuKit.CmdInput("/删除服务器 ", "删除服务器 <序号>"));
             return;
         }
 

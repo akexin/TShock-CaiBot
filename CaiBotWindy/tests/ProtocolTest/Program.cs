@@ -47,6 +47,10 @@ internal static class Program
         Check("hello 版本 = 2025.7.18", ProtocolVersions.For(PackageType.Hello) == "2025.7.18");
         Check("unbind_server 版本 = 2025.7.25", ProtocolVersions.For(PackageType.UnbindServer) == "2025.7.25");
         Check("error 版本 = 2026.2.14", ProtocolVersions.For(PackageType.Error) == "2026.2.14");
+        Check("ping 线名 = \"ping\"", PackageType.Ping.ToWire() == "ping");
+        Check("ping 可反向解析", ProtocolNames.ParseType("ping") == PackageType.Ping);
+        Check("not_registered 线名正确", WhitelistResult.NotRegistered.ToWire() == "not_registered");
+        Check("not_registered 可反向解析", ProtocolNames.ParseWhitelistResult("not_registered") == WhitelistResult.NotRegistered);
 
         Console.WriteLine("\n=== 4. 枚举线上字符串双向映射 ===");
         bool allWireRoundTrip = true;

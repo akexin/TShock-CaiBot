@@ -64,32 +64,92 @@ public static class WhitelistService
             return WhitelistResult.InGroupBlacklist;
         }
 
-        // ── ① 角色名绑定检测 ────────────────────────────────────────────────
+        // ── ① 角色名检测：必须有绑定记录 ────────────────────────────────────
         UserRecord? user = DataStore.FindUserByPlayerName(playerName);
         if (user is null)
         {
             return WhitelistResult.NotInWhitelist;
         }
 
+        // ── ② 注册检查：走了邮箱注册的，必须完成验证码验证 ────────────────────
+        if (string.Equals(user.RegisterSource, "email", StringComparison.OrdinalIgnoreCase) && !user.EmailVerified)
+        {
+            return WhitelistResult.NotRegistered;
+        }
+
+        bool hasBaseline = !string.IsNullOrEmpty(user.RegisterIp) || !string.IsNullOrEmpty(user.RegisterUuid);
+
+        // ── ③ 首次进服：把这次的 IP 与设备定为「注册基准」──────────────────────
+        // 定基准之前先查占用 —— 一个 IP / 一台设备只能对应一个角色，
+        // 否则一个人可以拿同一台机器批量开号。
+        if (!hasBaseline)
+        {
+            (string? takenReason, string? takenNote) = FindOccupier(user, playerIp, playerUuid);
+            if (takenReason is not null)
+            {
+                LoginAttempt taken = EnsureAttempt(user, playerName, playerIp, playerUuid, takenReason, takenNote ?? "");
+                NotifyPending(session.GroupOpenId, taken);
+                return WhitelistResult.NeedLogin;
+            }
+
+            user.RegisterIp = playerIp;
+            user.RegisterUuid = playerUuid;
+            Remember(user, playerIp, playerUuid);
+            DataStore.UpsertUser(user);
+            return WhitelistResult.Accept;
+        }
+
+        // ── ④ 历史环境直接放行 ──────────────────────────────────────────────
+        // 判定依据是 Uuids / Ips 历史而不是单一基准 —— 管理员点「确认登录」后新环境会进历史，
+        // 如果这里只跟基准比对，批准就等于没批：基准停在旧环境，玩家会被反复弹窗
+        // （上线首日移动网络玩家连点四次确认仍进不来，就是这个原因）。
         bool knownDevice = Contains(user.Uuids, playerUuid);
         bool knownIp = Contains(user.Ips, playerIp);
-        bool firstBind = user.Uuids.Count == 0 && user.Ips.Count == 0;
 
-        // 首次进服直接放行并记住设备与 IP。
-        // 不这么做的话每个新绑定玩家都要管理员点一次确认，白名单就没法自助了。
-        if (firstBind || (knownDevice && knownIp))
+        if (knownDevice && knownIp)
         {
             Remember(user, playerIp, playerUuid);
             DataStore.UpsertUser(user);
             return WhitelistResult.Accept;
         }
 
-        // ── ② / ③ 设备与 IP 检测未通过 → 需要人工确认 ─────────────────────────
+        // ── ⑤ 新设备或新网络 → 群里弹确认框，管理员或本人决定放不放行 ──────────
         string reason = !knownDevice && !knownIp ? "both" : !knownDevice ? "device" : "ip";
-        LoginAttempt attempt = EnsureAttempt(user, playerName, playerIp, playerUuid, reason);
+        LoginAttempt attempt = EnsureAttempt(user, playerName, playerIp, playerUuid, reason, "");
         NotifyPending(session.GroupOpenId, attempt);
 
         return WhitelistResult.NeedLogin;
+    }
+
+    /// <summary>
+    /// 查这枚 IP / 设备名下的账号数是否已达上限（<see cref="PluginData.RegisterLimitPerIp"/>）。
+    /// 返回 (原因码, 说明)，未超限则返回 (null, null)。
+    /// </summary>
+    private static (string? Reason, string? Note) FindOccupier(UserRecord user, string playerIp, string playerUuid)
+    {
+        int limit = Math.Max(1, DataStore.Data.RegisterLimitPerIp);
+
+        List<string> ipOwners = DataStore.Data.Users
+            .Where(item => item.RegisterIp == playerIp && item.OpenId != user.OpenId)
+            .Select(item => item.PlayerName)
+            .ToList();
+        if (ipOwners.Count >= limit)
+        {
+            return ("ip-taken",
+                $"该 IP 已注册 {ipOwners.Count} 个角色（上限 {limit}）：{string.Join("、", ipOwners.Take(3))}");
+        }
+
+        List<string> deviceOwners = DataStore.Data.Users
+            .Where(item => item.RegisterUuid == playerUuid && item.OpenId != user.OpenId)
+            .Select(item => item.PlayerName)
+            .ToList();
+        if (deviceOwners.Count >= limit)
+        {
+            return ("device-taken",
+                $"该设备已注册 {deviceOwners.Count} 个角色（上限 {limit}）：{string.Join("、", deviceOwners.Take(3))}");
+        }
+
+        return (null, null);
     }
 
     /// <summary>批准某个验证码，把该设备与 IP 写入历史（下次同样环境就直接放行）。</summary>
@@ -114,6 +174,10 @@ public static class WhitelistService
             return (false, "该角色已不在白名单中。");
         }
 
+        // 批准 = 认可这个新环境，把它设为新的注册基准 —— 否则基准停在旧环境，
+        // 「一 IP / 一设备 N 个账号」的占用统计和后续判定都会算错。
+        user.RegisterIp = attempt.Ip;
+        user.RegisterUuid = attempt.Uuid;
         Remember(user, attempt.Ip, attempt.Uuid);
         DataStore.UpsertUser(user);
         DataStore.RemoveLoginAttempt(code);
@@ -175,6 +239,8 @@ public static class WhitelistService
             "device" => "换了设备",
             "ip" => "换了网络",
             "both" => "换了设备 + 换了网络",
+            "ip-taken" => "该 IP 已被其他角色注册",
+            "device-taken" => "该设备已被其他角色注册",
             _ => "未授权设备",
         };
     }
@@ -188,7 +254,7 @@ public static class WhitelistService
     // ── 内部实现 ────────────────────────────────────────────────────────────────
 
     private static LoginAttempt EnsureAttempt(
-        UserRecord user, string name, string ip, string uuid, string reason)
+        UserRecord user, string name, string ip, string uuid, string reason, string note)
     {
         LoginAttempt? existing = DataStore.FindLoginAttemptByPlayer(name);
         bool valid = existing is not null &&
@@ -201,6 +267,7 @@ public static class WhitelistService
             existing!.Ip = ip;
             existing.Uuid = uuid;
             existing.Reason = reason;
+            existing.Note = note;
             DataStore.SaveServerChange();
             return existing;
         }
@@ -212,6 +279,7 @@ public static class WhitelistService
             Ip = ip,
             Uuid = uuid,
             Reason = reason,
+            Note = note,
             Code = GenerateCode(),
             CreatedAtUtc = DateTime.UtcNow,
         };
@@ -258,16 +326,24 @@ public static class WhitelistService
 
     private static string BuildLoginRequest(LoginAttempt attempt)
     {
-        return
-            "# 🔐 登录验证\n" +
-            $"- 玩家名称：**{attempt.PlayerName}**\n" +
-            $"- 登录 IP：`{attempt.Ip}`\n" +
-            $"- 触发原因：**{DescribeReason(attempt.Reason)}**\n" +
-            $"- 申请时间：{attempt.CreatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\n" +
-            $"- 验证码：`{attempt.Code}`\n\n" +
-            "> ✅ 点是本人操作 → 点下方「确认登录」\n" +
-            "> ❌ 不是本人 → 点「拒绝登录」\n" +
-            "> ⚠️ 请确认后再操作，验证码 30 分钟内有效";
+        System.Text.StringBuilder builder = new();
+        builder.Append("# 🔐 登录验证\n");
+        builder.Append($"- 玩家名称：**{attempt.PlayerName}**\n");
+        builder.Append($"- 登录 IP：`{attempt.Ip}`\n");
+        builder.Append($"- 触发原因：**{DescribeReason(attempt.Reason)}**\n");
+
+        if (!string.IsNullOrEmpty(attempt.Note))
+        {
+            builder.Append($"- 说明：{attempt.Note}\n");
+        }
+
+        builder.Append($"- 申请时间：{attempt.CreatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\n");
+        builder.Append($"- 验证码：`{attempt.Code}`\n\n");
+        builder.Append("> ✅ 是本人操作 → 点「确认登录」\n");
+        builder.Append("> ❌ 不是本人 → 点「拒绝登录」\n");
+        builder.Append("> ⚠️ 请确认后再操作，验证码 30 分钟内有效");
+
+        return builder.ToString();
     }
 
     /// <summary>记住本次登录的设备与 IP（去重 + 只保留最近若干条）。</summary>

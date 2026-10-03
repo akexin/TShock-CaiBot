@@ -80,6 +80,45 @@ public sealed class PluginConfig
     /// <summary>自动处理入群申请后是否往群里发一条结果通知。默认关闭（只写控制台，不打扰管理员）。</summary>
     public bool GroupJoinNotify { get; set; }
 
+    /// <summary>注册验证码的邮件发送配置。留空则注册功能自动降级为「不需要验证码」。</summary>
+    public SmtpSettings Smtp { get; set; } = new();
+
     /// <summary>是否在控制台打印收到的每个数据包（排障用）。</summary>
     public bool Debug { get; set; }
+}
+
+/// <summary>
+/// 注册验证码的发件邮箱配置。
+///
+/// <para><b>关于 QQ 邮箱</b>：<c>Password</c> 填的不是 QQ 密码，而是「SMTP 授权码」——
+/// 要去 QQ 邮箱 → 设置 → 账户 → 开启 SMTP 服务 后生成的那串 16 位字符。
+/// 端口用 <b>587</b>（STARTTLS）：<c>SmtpClient</c> 不支持 465 那种一上来就握手的隐式 SSL，
+/// 用 465 会直接卡住直到超时。</para>
+/// </summary>
+public sealed class SmtpSettings
+{
+    /// <summary>是否启用邮件发送。关闭时注册流程会跳过验证码环节。</summary>
+    public bool Enabled { get; set; }
+
+    public string Host { get; set; } = "smtp.qq.com";
+
+    /// <summary>587 = STARTTLS（推荐）；465 是隐式 SSL，SmtpClient 不支持。</summary>
+    public int Port { get; set; } = 587;
+
+    /// <summary>发件邮箱，例如 <c>123456789@qq.com</c>。</summary>
+    public string User { get; set; } = "";
+
+    /// <summary>SMTP 授权码（不是 QQ 密码）。</summary>
+    public string Password { get; set; } = "";
+
+    /// <summary>收件人看到的发件人名称。</summary>
+    public string FromName { get; set; } = "泰拉瑞亚服务器";
+
+    /// <summary>是否配置完整、可以真正发信。</summary>
+    [JsonIgnore]
+    public bool Ready => Enabled &&
+                         !string.IsNullOrWhiteSpace(Host) &&
+                         !string.IsNullOrWhiteSpace(User) &&
+                         !string.IsNullOrWhiteSpace(Password) &&
+                         Port > 0;
 }

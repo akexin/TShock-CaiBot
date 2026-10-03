@@ -19,6 +19,8 @@ public enum PackageType
     RankData,
     ShopCondition,
     ShopBuy,
+    Ping,
+    ServerLog,
     Error,
     Unknown
 }
@@ -46,6 +48,8 @@ public static class PackageTypeExtension
             PackageType.PluginList => new Version(2025, 7, 25),
             PackageType.ShopBuy => new Version(2025, 7, 25),
             PackageType.ShopCondition => new Version(2025, 7, 25),
+            PackageType.Ping => new Version(2026, 10, 3),
+            PackageType.ServerLog => new Version(2026, 10, 3),
             PackageType.Error => new Version(2026, 2, 14),
             _ => new Version(2007, 5, 24)
         };

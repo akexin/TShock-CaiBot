@@ -38,6 +38,13 @@ internal static class CaiBotApi
                         .Write("output", tr.GetCommandOutput())
                         .Send();
                     break;
+                case PackageType.Ping:
+                    // 纯回环探测：不碰任何游戏状态，收到立刻把服务端时间回过去，机器人用它算往返延迟。
+                    // 这是整条链路上最轻的包，不会给服务器带来负担。
+                    packetWriter
+                        .Write("server_time", System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                        .Send();
+                    break;
                 case PackageType.PlayerList:
                     packetWriter
                         .Write("server_name", string.IsNullOrEmpty(Main.worldName) ? "地图还没加载捏~" : Main.worldName)

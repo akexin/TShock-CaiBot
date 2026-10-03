@@ -29,6 +29,8 @@ public enum PackageType
     RankData,
     ShopCondition,
     ShopBuy,
+    Ping,
+    ServerLog,
     Error,
     Unknown,
 }
@@ -46,7 +48,16 @@ public enum WhitelistResult
 {
     Accept,
     NeedLogin,
+
+    /// <summary>角色名压根没有绑定记录。</summary>
     NotInWhitelist,
+
+    /// <summary>
+    /// 有绑定记录，但邮箱注册还没完成验证 —— 与「不在白名单」区分开，
+    /// 因为给玩家的提示完全不同（一个让他去注册，一个让他去补验证码）。
+    /// </summary>
+    NotRegistered,
+
     InGroupBlacklist,
     InBotBlacklist,
     Unknown,
@@ -95,6 +106,8 @@ public static class ProtocolNames
         PackageType.RankData => "rank_data",
         PackageType.ShopCondition => "shop_condition",
         PackageType.ShopBuy => "shop_buy",
+        PackageType.Ping => "ping",
+        PackageType.ServerLog => "server_log",
         PackageType.Error => "error",
         _ => "unknown",
     };
@@ -117,6 +130,8 @@ public static class ProtocolNames
         "rank_data" => PackageType.RankData,
         "shop_condition" => PackageType.ShopCondition,
         "shop_buy" => PackageType.ShopBuy,
+        "ping" => PackageType.Ping,
+        "server_log" => PackageType.ServerLog,
         "error" => PackageType.Error,
         _ => PackageType.Unknown,
     };
@@ -161,6 +176,7 @@ public static class ProtocolNames
         WhitelistResult.Accept => "accept",
         WhitelistResult.NeedLogin => "need_login",
         WhitelistResult.NotInWhitelist => "not_in_whitelist",
+        WhitelistResult.NotRegistered => "not_registered",
         WhitelistResult.InGroupBlacklist => "in_group_blacklist",
         WhitelistResult.InBotBlacklist => "in_bot_blacklist",
         _ => "unknown",
@@ -171,6 +187,7 @@ public static class ProtocolNames
         "accept" => WhitelistResult.Accept,
         "need_login" => WhitelistResult.NeedLogin,
         "not_in_whitelist" => WhitelistResult.NotInWhitelist,
+        "not_registered" => WhitelistResult.NotRegistered,
         "in_group_blacklist" => WhitelistResult.InGroupBlacklist,
         "in_bot_blacklist" => WhitelistResult.InBotBlacklist,
         _ => WhitelistResult.Unknown,
@@ -182,6 +199,7 @@ public static class ProtocolNames
         WhitelistResult.Accept => "允许进入",
         WhitelistResult.NeedLogin => "需要先在机器人中完成登录",
         WhitelistResult.NotInWhitelist => "不在白名单中",
+        WhitelistResult.NotRegistered => "邮箱注册尚未完成",
         WhitelistResult.InGroupBlacklist => "位于群黑名单中",
         WhitelistResult.InBotBlacklist => "位于机器人黑名单中",
         _ => "未知状态",
