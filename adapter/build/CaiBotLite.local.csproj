@@ -1,0 +1,106 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    本地化编译工程：不依赖官方 template.targets（它走 NuGet 的 TShock 6.2.1 包与本机运行时不一定同版本），
+    改为直接引用本机 TShock-Server 已安装的程序集，保证编译期签名与运行期完全一致。
+    源码目录 ../CaiBotLite 保持与上游 master 一致，仅对 Config.cs / WebsocketManager.cs 做最小改动。
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>CaiBotLite</AssemblyName>
+    <RootNamespace>CaiBotLite</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OutputPath>out\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <DebugType>none</DebugType>
+    <NoWarn>$(NoWarn);CS8618;CS8625;CS8600;CS8602;CS8604;CS8601;CS8622;CS8619;CS8603;CS0168;CS0219</NoWarn>
+    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
+    <ServerRoot>$(MSBuildThisFileDirectory)..\..\TShock-Server</ServerRoot>
+    <PluginPack>$(MSBuildThisFileDirectory)..\..\plugin-pack\Plugins</PluginPack>
+    <AutoCompileAsm>$(ServerRoot)\tshock\自动编译\程序集</AutoCompileAsm>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\CaiBotLite\**\*.cs" />
+    <Compile Include="..\Shared\**\*.cs" />
+  </ItemGroup>
+
+  <!-- TShock 本体与 Terraria（运行期由 TShock 提供，不随插件输出） -->
+  <ItemGroup>
+    <Reference Include="TShockAPI">
+      <HintPath>$(ServerRoot)\ServerPlugins\TShockAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- OTAPI.dll 提供 Terraria.* / Microsoft.Xna.Framework.*（1.4.5.8）
+         OTAPI.Runtime.dll 提供 MonoMod 的 On.* / IL.* 钩子命名空间。
+         两者的类型命名空间互不重叠，可同时引用，不会产生 CS0433 冲突。
+         TerrariaApi.Server（TerrariaPlugin / ServerApi / ApiVersion）在 TerrariaServer.dll。 -->
+    <Reference Include="OTAPI">
+      <HintPath>$(ServerRoot)\bin\OTAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="OTAPI.Runtime">
+      <HintPath>$(ServerRoot)\bin\OTAPI.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="TerrariaServer">
+      <HintPath>$(ServerRoot)\bin\TerrariaServer.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- 第三方库：本机已有可直接引用的版本 -->
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(AutoCompileAsm)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GetText">
+      <HintPath>$(AutoCompileAsm)\GetText.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(AutoCompileAsm)\MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="linq2db">
+      <HintPath>$(PluginPack)\linq2db.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- 可选集成插件：编译期需要其类型签名，运行期由 TShock 按需加载 -->
+  <ItemGroup>
+    <Reference Include="GenerateMap">
+      <HintPath>$(PluginPack)\GenerateMap.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BossLock">
+      <HintPath>$(PluginPack)\BossLock.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Economics.Core">
+      <HintPath>$(PluginPack)\Economics.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Economics.RPG">
+      <HintPath>$(PluginPack)\Economics.RPG.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Economics.Skill">
+      <HintPath>$(PluginPack)\Economics.Skill.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ProgressControls">
+      <HintPath>$(PluginPack)\ProgressControls.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

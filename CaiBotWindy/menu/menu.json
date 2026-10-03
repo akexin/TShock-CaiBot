@@ -1,0 +1,197 @@
+{
+  "menu": {
+    "items": [
+      {
+        "name": "服务器管理",
+        "type": "menu",
+        "sub_menu_items": [
+          {
+            "name": "添加服务器",
+            "type": "send_message",
+            "send_message": "/添加服务器 "
+          },
+          {
+            "name": "服务器列表",
+            "type": "send_message",
+            "send_message": "/服务器列表"
+          },
+          {
+            "name": "服务器信息",
+            "type": "send_message",
+            "send_message": "/服务器信息 "
+          },
+          {
+            "name": "修改服务器",
+            "type": "send_message",
+            "send_message": "/修改服务器 "
+          },
+          {
+            "name": "删除服务器",
+            "type": "send_message",
+            "send_message": "/删除服务器 "
+          }
+        ]
+      },
+      {
+        "name": "快捷功能",
+        "type": "menu",
+        "sub_menu_items": [
+          {
+            "name": "在线",
+            "type": "send_message",
+            "send_message": "/在线"
+          },
+          {
+            "name": "进度查询",
+            "type": "send_message",
+            "send_message": "/进度查询"
+          },
+          {
+            "name": "查背包",
+            "type": "send_message",
+            "send_message": "/查背包 "
+          },
+          {
+            "name": "排行",
+            "type": "send_message",
+            "send_message": "/排行 "
+          },
+          {
+            "name": "插件列表",
+            "type": "send_message",
+            "send_message": "/插件列表"
+          }
+        ]
+      },
+      {
+        "name": "地图功能",
+        "type": "menu",
+        "sub_menu_items": [
+          {
+            "name": "查看地图",
+            "type": "send_message",
+            "send_message": "/查看地图"
+          },
+          {
+            "name": "下载地图",
+            "type": "send_message",
+            "send_message": "/下载地图"
+          },
+          {
+            "name": "下载小地图",
+            "type": "send_message",
+            "send_message": "/下载小地图"
+          }
+        ]
+      },
+      {
+        "name": "图鉴搜索",
+        "type": "menu",
+        "sub_menu_items": [
+          {
+            "name": "搜物品",
+            "type": "send_message",
+            "send_message": "/si "
+          },
+          {
+            "name": "搜生物",
+            "type": "send_message",
+            "send_message": "/sn "
+          },
+          {
+            "name": "搜弹幕",
+            "type": "send_message",
+            "send_message": "/sp "
+          },
+          {
+            "name": "搜增益",
+            "type": "send_message",
+            "send_message": "/sb "
+          },
+          {
+            "name": "搜修饰语",
+            "type": "send_message",
+            "send_message": "/sx "
+          }
+        ]
+      },
+      {
+        "name": "白名单",
+        "type": "menu",
+        "sub_menu_items": [
+          {
+            "name": "添加白名单",
+            "type": "send_message",
+            "send_message": "/添加白名单 "
+          },
+          {
+            "name": "我的白名单",
+            "type": "send_message",
+            "send_message": "/我的白名单"
+          },
+          {
+            "name": "登录",
+            "type": "send_message",
+            "send_message": "/登录 "
+          },
+          {
+            "name": "签到",
+            "type": "send_message",
+            "send_message": "/签到"
+          },
+          {
+            "name": "查询金币",
+            "type": "send_message",
+            "send_message": "/查询金币"
+          }
+        ]
+      },
+      {
+        "name": "群管理",
+        "type": "menu",
+        "sub_menu_items": [
+          {
+            "name": "群信息",
+            "type": "send_message",
+            "send_message": "/获取群信息"
+          },
+          {
+            "name": "管理列表",
+            "type": "send_message",
+            "send_message": "/管理列表"
+          },
+          {
+            "name": "群设置",
+            "type": "send_message",
+            "send_message": "/设置 "
+          },
+          {
+            "name": "黑名单列表",
+            "type": "send_message",
+            "send_message": "/黑名单列表"
+          },
+          {
+            "name": "权限请求",
+            "type": "send_message",
+            "send_message": "/权限请求"
+          }
+        ]
+      },
+      {
+        "name": "服务器列表",
+        "type": "send_message",
+        "send_message": "/服务器列表"
+      },
+      {
+        "name": "菜单面板",
+        "type": "send_message",
+        "send_message": "/菜单面板"
+      },
+      {
+        "name": "帮助",
+        "type": "send_message",
+        "send_message": "/帮助"
+      }
+    ]
+  }
+}

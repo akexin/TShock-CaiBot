@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>CaiBotWindy</AssemblyName>
+    <RootNamespace>CaiBotWindy</RootNamespace>
+    <Version>2026.10.3</Version>
+    <AssemblyVersion>2026.10.3.1</AssemblyVersion>
+    <FileVersion>2026.10.3.1</FileVersion>
+    <Product>CaiBotWindy</Product>
+    <Description>泰拉瑞亚服务器管理 QQ 官方机器人（Windy 插件，兼容 CaiBotLite 数据包协议）</Description>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\refs\Windy.SDK\Windy.SDK.csproj" />
+  </ItemGroup>
+
+  <!-- 世界进度卡片渲染（对齐官方 CaiBotLite 的 QueryProcess）：贴图合成 + 中文文字绘制 -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\data\*.json" Link="Data\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\menu\*.json" Link="Menu\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- 菜单配置同时内嵌一份进 DLL：部署时若漏拷 Menu\ 目录，插件启动会自动补种，避免 /菜单面板 失效 -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\menu\menu.json" LogicalName="CaiBotWindy.Menu.menu.json" />
+    <EmbeddedResource Include="..\..\menu\panels.json" LogicalName="CaiBotWindy.Menu.panels.json" />
+  </ItemGroup>
+
+</Project>

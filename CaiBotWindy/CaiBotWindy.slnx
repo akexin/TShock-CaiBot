@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="refs/Windy.SDK/Windy.SDK.csproj" />
+  <Project Path="refs/Windy/Windy.csproj" />
+  <Project Path="src/CaiBotWindy/CaiBotWindy.csproj" />
+  <Project Path="tests/ProtocolTest/ProtocolTest.csproj" />
+  <Project Path="tests/ProgressPreview/ProgressPreview.csproj" />
+</Solution>

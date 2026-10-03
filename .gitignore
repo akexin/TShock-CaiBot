@@ -1,0 +1,50 @@
+# ══════════════════════════════════════════════════════════════════
+#  TShock + CaiBotWindy
+# ══════════════════════════════════════════════════════════════════
+
+# ── 运行环境 / 工具链 ──────────────────────────────────────────────
+# 体积大，且 TShock-Server 里含服务器配置与密码，不入库
+TShock-Server/
+dotnet/
+dotnet-sdk/
+packages/
+plugin-pack/
+incoming/
+.backup/
+.tmp/
+.tmp-insp/
+.tmp-official/
+
+# ── 编译产物 ──────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.pdb
+
+# ── ★ 机器人运行目录：凭据 / 日志 / 第三方二进制 ───────────────────
+# deploy/Config 里有 QQ 机器人 ClientSecret 与绑定令牌，deploy/logs 里有
+# 群 OpenID 与玩家记录 —— 公开仓库必须排除，切勿放开。
+CaiBotWindy/deploy/Config/
+CaiBotWindy/deploy/logs/
+CaiBotWindy/deploy/Logs/
+CaiBotWindy/deploy/Plugins/
+CaiBotWindy/deploy/*.dll
+CaiBotWindy/deploy/*.exe
+CaiBotWindy/deploy/*.pdb
+CaiBotWindy/deploy/*.json
+
+# ── 第三方 SDK 的二进制副本（Windy / Windy.SDK）────────────────────
+# 运行时产物，请按 README 从上游获取，不入库
+CaiBotWindy/refs/
+adapter/build/out/
+
+# ── 测试 / 脚本产物 ───────────────────────────────────────────────
+CaiBotWindy/tests/ProgressPreview/out/
+CaiBotWindy/tests/ProgressPreview/mobile/
+CaiBotWindy/scripts/.caibotlite-tree.json
+
+# ── 工作区自身数据与根目录文档（不属于本仓库）─────────────────────
+.workbuddy/
+/*.md
+/*.bat.tmp

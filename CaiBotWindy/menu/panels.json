@@ -1,0 +1,165 @@
+[
+  {
+    "scope": "group",
+    "target_type": "all",
+    "panel": {
+      "remark": "CaiBotWindy 服务器助手",
+      "items": [
+        {
+          "name": "菜单",
+          "desc": "查看全部功能",
+          "type": "command"
+        },
+        {
+          "name": "服务器管理",
+          "desc": "服务器管理菜单",
+          "type": "command"
+        },
+        {
+          "name": "快捷功能",
+          "desc": "快捷功能菜单",
+          "type": "command"
+        },
+        {
+          "name": "地图功能",
+          "desc": "地图功能菜单",
+          "type": "command"
+        },
+        {
+          "name": "图鉴搜索菜单",
+          "desc": "图鉴搜索菜单",
+          "type": "command"
+        },
+        {
+          "name": "白名单菜单",
+          "desc": "白名单菜单",
+          "type": "command"
+        },
+        {
+          "name": "群管理",
+          "desc": "群管理菜单",
+          "type": "command"
+        },
+        {
+          "name": "在线",
+          "desc": "获取在线玩家列表",
+          "type": "command"
+        },
+        {
+          "name": "进度查询",
+          "desc": "查询世界 Boss 进度",
+          "type": "command"
+        },
+        {
+          "name": "服务器列表",
+          "desc": "获取服务器地址与端口",
+          "type": "command"
+        },
+        {
+          "name": "服务器信息",
+          "desc": "查看服务器详细信息",
+          "type": "command"
+        },
+        {
+          "name": "我的白名单",
+          "desc": "查看自己的绑定信息",
+          "type": "command"
+        },
+        {
+          "name": "签到",
+          "desc": "每日签到领取金币",
+          "type": "command"
+        },
+        {
+          "name": "查询金币",
+          "desc": "查看金币余额",
+          "type": "command"
+        },
+        {
+          "name": "查看地图",
+          "desc": "获取世界地图预览图",
+          "type": "command"
+        },
+        {
+          "name": "下载地图",
+          "desc": "下载世界文件 .wld",
+          "type": "command"
+        },
+        {
+          "name": "下载小地图",
+          "desc": "下载小地图文件 .tmap",
+          "type": "command"
+        },
+        {
+          "name": "查背包",
+          "desc": "查询指定玩家的背包",
+          "type": "command"
+        },
+        {
+          "name": "排行",
+          "desc": "查询服务器排行榜",
+          "type": "command"
+        },
+        {
+          "name": "插件列表",
+          "desc": "查看插件与模组列表",
+          "type": "command"
+        }
+      ]
+    }
+  },
+  {
+    "scope": "c2c",
+    "target_type": "all",
+    "panel": {
+      "remark": "CaiBotWindy 私聊助手",
+      "items": [
+        {
+          "name": "菜单",
+          "desc": "查看全部功能",
+          "type": "command"
+        },
+        {
+          "name": "搜物品",
+          "desc": "按名字或 ID 搜物品",
+          "type": "command"
+        },
+        {
+          "name": "搜生物",
+          "desc": "按名字或 ID 搜生物",
+          "type": "command"
+        },
+        {
+          "name": "搜弹幕",
+          "desc": "按名字或 ID 搜弹幕",
+          "type": "command"
+        },
+        {
+          "name": "搜增益",
+          "desc": "按名字或 ID 搜增益",
+          "type": "command"
+        },
+        {
+          "name": "搜修饰语",
+          "desc": "按名字或 ID 搜修饰语",
+          "type": "command"
+        },
+        {
+          "name": "我的白名单",
+          "desc": "查看自己的绑定信息",
+          "type": "command"
+        },
+        {
+          "name": "签到",
+          "desc": "每日签到领取金币",
+          "type": "command"
+        },
+        {
+          "name": "查询金币",
+          "desc": "查看金币余额",
+          "type": "command"
+        }
+      ]
+    }
+  }
+]
