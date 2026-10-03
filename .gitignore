@@ -44,7 +44,8 @@ CaiBotWindy/tests/ProgressPreview/out/
 CaiBotWindy/tests/ProgressPreview/mobile/
 CaiBotWindy/scripts/.caibotlite-tree.json
 
-# ── 工作区自身数据与根目录文档（不属于本仓库）─────────────────────
+# ── 工作区自身数据与根目录文档 ────────────────────────────────────
+# 根目录的部署笔记含内网信息，不入库；仅放行仓库首页 README
 .workbuddy/
 /*.md
-/*.bat.tmp
+!/README.md
