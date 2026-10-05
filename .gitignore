@@ -49,3 +49,6 @@ CaiBotWindy/scripts/.caibotlite-tree.json
 .workbuddy/
 /*.md
 !/README.md
+
+# ── 文档生成流水线中间产物（tencent-docx output/）───────────────────
+output/

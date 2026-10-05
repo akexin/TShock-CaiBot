@@ -183,58 +183,62 @@ async function pushMenu(token) {
 
 async function pushPanels(token) {
   const panels = JSON.parse(fs.readFileSync(PANELS_FILE, 'utf8'))
-  console.log(`\n=== POST /v2/panels（共 ${panels.length} 个面板）===`)
+  console.log(`\n=== 同步指令面板（共 ${panels.length} 个）===`)
 
   if (panels.length > LIMITS.panelCount) {
     return fail(`面板 ${panels.length} 个，超出平台上限 ${LIMITS.panelCount}`)
   }
 
   // 平台限制：同一 scope + target 只能存在 1 个面板。
-  // 因此同步策略是「先清空该场景 → 再逐个重建」，结果与配置文件完全一致，且可重复运行。
-  for (const scope of [...new Set(panels.map((entry) => entry.scope))]) {
-    const { ok, records } = await listAllPanels(token, scope)
-    if (!ok) continue
-
-    for (const record of records) {
-      const removed = await callApi(token, 'DELETE', `/v2/panels/${record.panel_id}`)
-      await new Promise((resolve) => setTimeout(resolve, 1200))
-      console.log(
-        `  - ${String(scope).padEnd(8)}清空旧面板「${record.panel?.remark}」` +
-          (removed.ok ? '✓' : `✗ ${describe(removed)}`),
-      )
-    }
-  }
-
+  // 有则 PUT 原地更新（v2/panels/{panel_id}），无则 POST 新建 ——
+  // 原地更新不会出现「已删旧、还没建新」的空窗期，也不会把面板 ID 顶掉。
   let success = 0
   for (const entry of panels) {
     const label = `${String(entry.scope).padEnd(8)}${String(entry.panel?.remark ?? '').padEnd(26)}`
-
+    const wantCount = entry.panel?.items?.length ?? 0
     const payload = {
-      scope: entry.scope,
-      target_type: entry.target_type,
       panel: {
         remark: entry.panel?.remark,
         items: entry.panel?.items ?? [],
       },
     }
 
-    const result = await callApi(token, 'POST', '/v2/panels', payload)
+    const { ok, records } = await listAllPanels(token, entry.scope)
+    const existing = ok ? records[0] : undefined
+
+    let result
+    let action
+    let panelId
+    if (existing) {
+      panelId = existing.panel_id
+      action = `更新（PUT ${panelId}）`
+      result = await callApi(token, 'PUT', `/v2/panels/${panelId}`, payload)
+    } else {
+      action = '新建（POST）'
+      result = await callApi(token, 'POST', '/v2/panels', {
+        scope: entry.scope,
+        target_type: entry.target_type,
+        ...payload,
+      })
+      panelId = result.data?.panel_id
+    }
+
     if (!result.ok) {
-      console.log(`  ✗ ${label} → ${describe(result)}`)
+      console.log(`  ✗ ${label} → ${action} ${describe(result)}`)
       continue
     }
 
-    const panelId = result.data?.panel_id ?? '?'
-    // 平台的指令面板操作是异步串行的：连发会互相覆盖，建完必须回查确认真的落库
+    // 平台的指令面板操作是异步串行的：写完必须回查，确认真的落库
     await new Promise((resolve) => setTimeout(resolve, 2500))
-    const { records } = await listAllPanels(token, entry.scope)
-    const alive = records.some((record) => record.panel_id === panelId)
+    const after = await listAllPanels(token, entry.scope)
+    const picked = after.records.find((record) => record.panel_id === panelId) ?? after.records[0]
+    const nowCount = picked?.panel?.items?.length ?? 0
 
-    if (alive) {
+    if (nowCount === wantCount) {
       success++
-      console.log(`  ✓ ${label} → ${panelId}（该场景现共 ${records.length} 个）`)
+      console.log(`  ✓ ${label} → ${action}（${nowCount} 元素）`)
     } else {
-      console.log(`  ✗ ${label} → ${panelId} 创建后未落库（该场景现共 ${records.length} 个）`)
+      console.log(`  ✗ ${label} → ${action} 回查不符：期望 ${wantCount} 元素，实际 ${nowCount}`)
     }
   }
 

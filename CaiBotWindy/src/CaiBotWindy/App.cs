@@ -1,4 +1,6 @@
+using Windy.SDK;
 using Windy.SDK.Adaptor;
+using Windy.SDK.Utils;
 
 namespace CaiBotWindy;
 
@@ -22,6 +24,23 @@ public static class App
 
     /// <summary>插件是否已完成初始化（HTTP 服务与图鉴数据就绪）。</summary>
     public static bool Ready { get; set; }
+
+    /// <summary>
+    /// 把当前配置写回磁盘。运行时改了配置项（如入群审核方式）后必须调用 ——
+    /// 配置只在启动时读一次，不写回的话重启就丢了。
+    /// </summary>
+    public static void SaveConfig()
+    {
+        try
+        {
+            string configPath = Path.Combine(WindyRuntime.BasicPath, "Config", "CaiBotWindy.json");
+            JsonTool.Create<PluginConfig>(configPath).InitContent(Config).Write();
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[CaiBotWindy] 保存配置失败: {ex.Message}");
+        }
+    }
 
     public static CancellationToken Shutdown { get; set; } = CancellationToken.None;
 }

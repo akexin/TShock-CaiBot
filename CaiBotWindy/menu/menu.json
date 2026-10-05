@@ -9,27 +9,18 @@
           { "name": "在线总览", "type": "send_message", "send_message": "/在线总览" },
           { "name": "进度查询", "type": "send_message", "send_message": "/进度查询" },
           { "name": "查背包", "type": "send_message", "send_message": "/查背包 " },
-          { "name": "连接延迟", "type": "send_message", "send_message": "/延迟" }
+          { "name": "系统状态", "type": "send_message", "send_message": "/系统状态" }
         ]
       },
       {
-        "name": "服务器管理",
+        "name": "服务器",
         "type": "menu",
         "sub_menu_items": [
-          { "name": "服务器列表", "type": "send_message", "send_message": "/服务器列表" },
-          { "name": "服务器信息", "type": "send_message", "send_message": "/服务器信息 " },
-          { "name": "添加服务器", "type": "send_message", "send_message": "/添加服务器 " },
-          { "name": "修改服务器", "type": "send_message", "send_message": "/修改服务器 " },
-          { "name": "删除服务器", "type": "send_message", "send_message": "/删除服务器 " }
-        ]
-      },
-      {
-        "name": "地图功能",
-        "type": "menu",
-        "sub_menu_items": [
-          { "name": "查看地图", "type": "send_message", "send_message": "/查看地图" },
-          { "name": "下载地图", "type": "send_message", "send_message": "/下载地图" },
-          { "name": "下载小地图", "type": "send_message", "send_message": "/下载小地图" }
+          { "name": "服务器管理", "type": "send_message", "send_message": "/服务器 " },
+          { "name": "地图", "type": "send_message", "send_message": "/地图 " },
+          { "name": "插件列表", "type": "send_message", "send_message": "/插件列表" },
+          { "name": "排行榜", "type": "send_message", "send_message": "/排行 " },
+          { "name": "断开连接", "type": "send_message", "send_message": "/自踢" }
         ]
       },
       {
@@ -50,7 +41,7 @@
           { "name": "邮箱注册", "type": "send_message", "send_message": "/注册 " },
           { "name": "注册验证", "type": "send_message", "send_message": "/注册验证 " },
           { "name": "我的注册", "type": "send_message", "send_message": "/我的注册" },
-          { "name": "我的白名单", "type": "send_message", "send_message": "/我的白名单" },
+          { "name": "白名单", "type": "send_message", "send_message": "/白名单 " },
           { "name": "登录验证", "type": "send_message", "send_message": "/登录 " }
         ]
       },
@@ -58,27 +49,25 @@
         "name": "群管理",
         "type": "menu",
         "sub_menu_items": [
-          { "name": "群信息", "type": "send_message", "send_message": "/获取群信息" },
-          { "name": "管理列表", "type": "send_message", "send_message": "/管理列表" },
-          { "name": "群设置", "type": "send_message", "send_message": "/设置 " },
-          { "name": "黑名单列表", "type": "send_message", "send_message": "/黑名单列表" },
-          { "name": "物品监控", "type": "send_message", "send_message": "/物品监控 " }
+          { "name": "群管理", "type": "send_message", "send_message": "/群 " },
+          { "name": "物品监控", "type": "send_message", "send_message": "/物品监控 " },
+          { "name": "远程指令", "type": "send_message", "send_message": "/远程指令 " },
+          { "name": "注册限制", "type": "send_message", "send_message": "/注册限制 " },
+          { "name": "查询金币", "type": "send_message", "send_message": "/查询金币" }
         ]
       },
       {
-        "name": "签到",
-        "type": "send_message",
-        "send_message": "/签到"
-      },
-      {
-        "name": "菜单面板",
-        "type": "send_message",
-        "send_message": "/菜单面板"
-      },
-      {
         "name": "帮助",
+        "type": "menu",
+        "sub_menu_items": [
+          { "name": "菜单面板", "type": "send_message", "send_message": "/菜单面板" },
+          { "name": "帮助", "type": "send_message", "send_message": "/帮助" }
+        ]
+      },
+      {
+        "name": "关于",
         "type": "send_message",
-        "send_message": "/帮助"
+        "send_message": "/关于"
       }
     ]
   }

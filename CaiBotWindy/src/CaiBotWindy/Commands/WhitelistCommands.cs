@@ -197,6 +197,21 @@ public static class WhitelistCommands
     [Command("登录", "批准新设备登录", MessageScene.Private)]
     public static async Task LoginAsync(CommandArgs args)
     {
+        // 子命令形式：/登录 确认 <码>、/登录 拒绝 <码>，与 /确认登录、/拒绝登录 等价。
+        // 收进这里是为了让菜单的「登录」一项就能覆盖整套验证码流程，不必再占两个槽位。
+        string head = args.GetOrDefault(0).Trim().ToLowerInvariant();
+        if (head is "确认" or "confirm")
+        {
+            await ReviewLoginAsync(new CommandArgs(args.CommandName, args.Parameters[1..], args.Message), approve: true);
+            return;
+        }
+
+        if (head is "拒绝" or "reject")
+        {
+            await ReviewLoginAsync(new CommandArgs(args.CommandName, args.Parameters[1..], args.Message), approve: false);
+            return;
+        }
+
         if (!args.Require(1))
         {
             List<LoginAttempt> pending = WhitelistService.PendingAttempts(args.Message.AuthorId);

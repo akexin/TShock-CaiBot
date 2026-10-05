@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using CaiBotWindy.Data;
 using CaiBotWindy.Net;
@@ -127,16 +128,16 @@ public static class ServerCommands
             MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
     }
 
-    // ── 连接延迟（ping）────────────────────────────────────────────────────────
+    // ── 系统状态（服务器 + 本机）──────────────────────────────────────────────
 
     /// <summary>延迟采样次数。单次测量会被抖动带偏，多测几次取平均才有参考价值。</summary>
     private const int PingSamples = 3;
 
-    [Command("延迟", "测量与服务器的连接延迟", MessageScene.Group)]
-    [Command("延迟", "测量与服务器的连接延迟", MessageScene.GroupAt)]
-    [Command("ping", "测量与服务器的连接延迟", MessageScene.Group)]
-    [Command("ping", "测量与服务器的连接延迟", MessageScene.GroupAt)]
-    public static async Task PingAsync(CommandArgs args)
+    [Command("系统状态", "查看服务器与本机运行状态", MessageScene.Group)]
+    [Command("系统状态", "查看服务器与本机运行状态", MessageScene.GroupAt)]
+    [Command("状态", "查看服务器与本机运行状态", MessageScene.Group)]
+    [Command("状态", "查看服务器与本机运行状态", MessageScene.GroupAt)]
+    public static async Task SystemStatusAsync(CommandArgs args)
     {
         string? groupOpenId = args.Message.GroupId;
         if (string.IsNullOrEmpty(groupOpenId))
@@ -146,53 +147,62 @@ public static class ServerCommands
         }
 
         List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
-        if (servers.Count == 0)
-        {
-            await CommandHelpers.ReplyAsync(args, "# ⛔ 本群还没有绑定服务器");
-            return;
-        }
-
-        // 不带序号就测全部 —— 探测包是空的，开销可以忽略，一次看完比逐个查方便。
-        int index = CommandHelpers.ParseServerIndex(args, 0);
-        List<ServerRecord> targets = index > 0
-            ? servers.Where(item => item.DisplayIndex == index).ToList()
-            : servers;
-
-        if (targets.Count == 0)
-        {
-            await CommandHelpers.ReplyAsync(args, $"# ⛔ 序号 {index} 对应的服务器不存在");
-            return;
-        }
 
         StringBuilder builder = new();
-        builder.Append("# 🍥 连接延迟\n");
+        builder.Append("# 🍥 系统状态\n");
 
-        foreach (ServerRecord record in targets)
+        if (servers.Count == 0)
         {
-            string name = string.IsNullOrWhiteSpace(record.ServerName)
-                ? $"服务器 {record.DisplayIndex}"
-                : record.ServerName;
-
-            builder.Append($"\n**『{name}』**\n");
-
-            if (!App.Hub.TryResolve(groupOpenId, record.DisplayIndex, out ServerSession session, out _))
+            builder.Append("\n**『服务器』**\n- 本群还没有绑定服务器\n");
+        }
+        else
+        {
+            foreach (ServerRecord record in servers)
             {
-                builder.Append("- 状态：⚪ 离线\n");
-                continue;
+                await AppendServerStatusAsync(builder, groupOpenId, record);
             }
+        }
 
-            // 旧版适配插件不认识 ping 包（会把整包判为非法并丢弃），与其白等三次超时，不如直接说清楚。
-            if (!SupportsPing(record.PluginVersion))
-            {
-                builder.Append("- 状态：⚠️ 适配插件版本过低\n");
-                builder.Append($"> 当前 `{record.PluginVersion}`，延迟探测需要 **2026.10.3** 及以上。\n");
-                continue;
-            }
+        AppendHostStatus(builder);
 
+        await CommandHelpers.ReplyAsync(args, builder.ToString(),
+            MenuKit.Keyboard(("刷新", "/系统状态"), ("在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+    }
+
+    /// <summary>单个服务器的状态块：连接、版本、延迟（3 次采样）、在线人数。</summary>
+    private static async Task AppendServerStatusAsync(StringBuilder builder, string groupOpenId, ServerRecord record)
+    {
+        string name = string.IsNullOrWhiteSpace(record.ServerName)
+            ? $"服务器 {record.DisplayIndex}"
+            : record.ServerName;
+
+        builder.Append($"\n**『{name}』**\n");
+
+        if (!App.Hub.TryResolve(groupOpenId, record.DisplayIndex, out ServerSession session, out _))
+        {
+            builder.Append("- 状态：⚪ 离线\n");
+            return;
+        }
+
+        builder.Append("- 状态：🟢 在线\n");
+
+        if (!string.IsNullOrEmpty(record.GameVersion))
+        {
+            builder.Append($"- 版本：Terraria {record.GameVersion} / {record.CoreVersion}\n");
+        }
+
+        if (!string.IsNullOrEmpty(record.PluginVersion))
+        {
+            builder.Append($"- 适配插件：{record.PluginVersion}" +
+                           (record.EnableWhitelist ? " · 白名单开启\n" : " · 白名单关闭\n"));
+        }
+
+        // 旧版插件不认识 ping 包，跳过延迟探测而不是白等三次超时。
+        if (SupportsPing(record.PluginVersion))
+        {
             List<long> samples = [];
             for (int round = 0; round < PingSamples; round++)
             {
-                // 探测包正常是毫秒级回来的，3 秒足够；这样旧插件不回包时也不会把指令卡住 30 秒。
                 using CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
                 Stopwatch watch = Stopwatch.StartNew();
                 try
@@ -207,29 +217,124 @@ public static class ServerCommands
                 catch (Exception ex)
                 {
                     watch.Stop();
-                    Message.Yellow($"[延迟] {name} 第 {round + 1} 次探测失败: {ex.Message}");
+                    Message.Yellow($"[系统状态] {name} 第 {round + 1} 次探测失败: {ex.Message}");
                 }
             }
 
-            if (samples.Count == 0)
+            if (samples.Count > 0)
             {
-                builder.Append("- 状态：⚠️ 探测无响应\n");
-                builder.Append("> 适配插件可能还是旧版本（延迟指令需要 2026.10.3 及以上）。\n");
-                continue;
+                double avg = samples.Average();
+                builder.Append($"- 延迟：**{Math.Round(avg)} ms**　{PingGrade(avg)}" +
+                               $"（{samples.Min()}–{samples.Max()} ms / {samples.Count} 次）\n");
             }
-
-            samples.Sort();
-            long min = samples[0];
-            long max = samples[^1];
-            double avg = samples.Average();
-
-            builder.Append($"- 延迟：**{Math.Round(avg)} ms**　{PingGrade(avg)}\n");
-            builder.Append($"- 最小 / 平均 / 最大：{min} / {Math.Round(avg)} / {max} ms\n");
-            builder.Append($"- 采样：{samples.Count} 次\n");
+            else
+            {
+                builder.Append("- 延迟：⚠️ 探测无响应\n");
+            }
         }
 
-        await CommandHelpers.ReplyAsync(args, builder.ToString(),
-            MenuKit.Keyboard(("刷新", "/延迟"), ("在线总览", "/在线总览"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+        try
+        {
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
+            BotPacket? packet = await session.RequestAsync(PackageType.PlayerList, new JObject(), cts.Token);
+            if (packet is not null)
+            {
+                builder.Append($"- 在线：**{packet.Payload.GetInt("current_online")} / {packet.Payload.GetInt("max_online")}**\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[系统状态] {name} 在线人数查询失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>本机（机器人所在机器）的运行状态。</summary>
+    private static void AppendHostStatus(StringBuilder builder)
+    {
+        Process process = Process.GetCurrentProcess();
+        TimeSpan uptime = DateTime.Now - process.StartTime;
+
+        builder.Append("\n**『本机』**\n");
+        builder.Append($"- 运行时长：{DescribeDuration(uptime)}\n");
+        builder.Append($"- 进程内存：{process.WorkingSet64 / 1024.0 / 1024.0:F1} MB\n");
+
+        // 用累计 CPU 时间 / (运行时长 × 核心数) 算平均占用：瞬时值要两次采样，平均值更稳且无副作用。
+        double cpu = process.TotalProcessorTime.TotalMilliseconds /
+                     Math.Max(1, uptime.TotalMilliseconds * Environment.ProcessorCount) * 100;
+        builder.Append($"- 平均 CPU：{cpu:F1}%（{Environment.ProcessorCount} 核）\n");
+
+        if (TryGetMemory(out ulong totalMb, out ulong availMb))
+        {
+            builder.Append($"- 系统内存：{availMb / 1024.0:F1} GB 可用 / {totalMb / 1024.0:F1} GB\n");
+        }
+
+        try
+        {
+            DriveInfo drive = new(Path.GetPathRoot(AppContext.BaseDirectory) ?? "C:\\");
+            if (drive.IsReady)
+            {
+                builder.Append($"- 磁盘 {drive.Name.TrimEnd('\\')}：{drive.AvailableFreeSpace / 1073741824.0:F1} GB 可用" +
+                               $" / {drive.TotalSize / 1073741824.0:F1} GB\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[系统状态] 磁盘信息读取失败: {ex.Message}");
+        }
+    }
+
+    private static string DescribeDuration(TimeSpan span)
+    {
+        if (span.TotalDays >= 1)
+        {
+            return $"{(int)span.TotalDays} 天 {span.Hours} 小时";
+        }
+
+        return span.TotalHours >= 1
+            ? $"{(int)span.TotalHours} 小时 {span.Minutes} 分"
+            : $"{span.Minutes} 分 {span.Seconds} 秒";
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MemoryStatusEx
+    {
+        public uint Length;
+        public uint MemoryLoad;
+        public ulong TotalPhys;
+        public ulong AvailPhys;
+        public ulong TotalPageFile;
+        public ulong AvailPageFile;
+        public ulong TotalVirtual;
+        public ulong AvailVirtual;
+        public ulong AvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
+
+    /// <summary>读物理内存。.NET 没有跨平台 API，这里直接调 Win32（本项目只在 Windows 跑）。</summary>
+    private static bool TryGetMemory(out ulong totalMb, out ulong availMb)
+    {
+        totalMb = 0;
+        availMb = 0;
+
+        try
+        {
+            MemoryStatusEx status = new() { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
+            if (!GlobalMemoryStatusEx(ref status))
+            {
+                return false;
+            }
+
+            totalMb = status.TotalPhys / 1024 / 1024;
+            availMb = status.AvailPhys / 1024 / 1024;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>适配插件是否支持 ping 包（2026.10.3 起）。</summary>

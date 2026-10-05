@@ -22,6 +22,15 @@ public sealed class PluginData
     public List<LoginAttempt> LoginAttempts { get; set; } = [];
 
     /// <summary>
+    /// 待处理的入群申请。
+    /// <para>必须落库：QQ 的审批接口要求带 <c>join_request_id</c>，不传会报
+    /// <c>40103007 无效或已过期的审批令牌</c> —— 而按钮点击只回传一个固定的指令文本，
+    /// 拿不到事件里的 id，只能在这里按 memberOpenId 反查。</para>
+    /// </summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<JoinRequestRecord> JoinRequests { get; set; } = [];
+
+    /// <summary>
     /// 同一个注册基准 IP / 设备最多允许的账号数（默认 2）。
     /// 管理员可用 <c>/注册限制</c> 实时调整，改动即存。
     /// </summary>
@@ -55,6 +64,25 @@ public sealed class LoginAttempt
     public bool Notified { get; set; }
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>一条待处理的入群申请。</summary>
+public sealed class JoinRequestRecord
+{
+    /// <summary>群 OpenID。</summary>
+    public string GroupOpenId { get; set; } = "";
+
+    /// <summary>申请人的 OpenID。</summary>
+    public string MemberOpenId { get; set; } = "";
+
+    /// <summary>QQ 审批接口需要的申请 ID（不传会报 40103007「无效或已过期的审批令牌」）。</summary>
+    public string JoinRequestId { get; set; } = "";
+
+    /// <summary>申请时的昵称，仅用于展示。</summary>
+    public string UserName { get; set; } = "";
+
+    /// <summary>收到申请的时间。</summary>
+    public DateTime AppliedAtUtc { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>一个已绑定的泰拉瑞亚服务器。</summary>
@@ -360,6 +388,58 @@ public static class DataStore
         {
             return data.Users.FirstOrDefault(item => item.RegisterUuid == uuid);
         }
+    }
+
+    // ── 入群申请（审批必须带 join_request_id）────────────────────────────────────
+
+    /// <summary>记录一条待审入群申请；同一群同一人的旧记录会被替换。</summary>
+    public static void UpsertJoinRequest(JoinRequestRecord record)
+    {
+        lock (SyncRoot)
+        {
+            data.JoinRequests.RemoveAll(item =>
+                item.GroupOpenId == record.GroupOpenId && item.MemberOpenId == record.MemberOpenId);
+            data.JoinRequests.Add(record);
+
+            // 只保留最近 7 天，避免长期运行无限增长。
+            DateTime cutoff = DateTime.UtcNow.AddDays(-7);
+            data.JoinRequests.RemoveAll(item => item.AppliedAtUtc < cutoff);
+        }
+
+        SaveServerChange();
+    }
+
+    /// <summary>按群 + 成员查待审申请 —— 按钮点击时靠它反查 <c>join_request_id</c>。</summary>
+    public static JoinRequestRecord? FindJoinRequest(string groupOpenId, string memberOpenId)
+    {
+        lock (SyncRoot)
+        {
+            return data.JoinRequests.FirstOrDefault(item =>
+                item.GroupOpenId == groupOpenId && item.MemberOpenId == memberOpenId);
+        }
+    }
+
+    public static List<JoinRequestRecord> ListJoinRequests(string groupOpenId)
+    {
+        lock (SyncRoot)
+        {
+            return data.JoinRequests
+                .Where(item => item.GroupOpenId == groupOpenId)
+                .OrderBy(item => item.AppliedAtUtc)
+                .ToList();
+        }
+    }
+
+    /// <summary>审批完成后移除记录。</summary>
+    public static void RemoveJoinRequest(string groupOpenId, string memberOpenId)
+    {
+        lock (SyncRoot)
+        {
+            data.JoinRequests.RemoveAll(item =>
+                item.GroupOpenId == groupOpenId && item.MemberOpenId == memberOpenId);
+        }
+
+        SaveServerChange();
     }
 
     public static void UpsertUser(UserRecord record)

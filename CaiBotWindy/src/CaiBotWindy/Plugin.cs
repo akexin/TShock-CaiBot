@@ -95,6 +95,8 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
             qq.OnGroupAddRobot += OnGroupAddRobotAsync;
             qq.OnGroupDelRobot += OnGroupDelRobotAsync;
             qq.OnGroupJoinRequest += OnGroupJoinRequestAsync;
+            qq.OnGroupMemberAdd += OnGroupMemberAddAsync;
+            qq.OnGroupMemberRemove += OnGroupMemberRemoveAsync;
         }
 
         // 指令表里匹配不到时兜底回一句话，避免私聊 / 群 AT 出现「发了没反应」。
@@ -214,6 +216,83 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
     }
 
     /// <summary>
+    /// 有人进群 → 通知管理员确认或拉黑。
+    ///
+    /// <para>注意：入群申请<b>已通过</b>的人也会走这里，所以措辞是「新成员」而非「待审批申请」——
+    /// 真正需要事前审批的走 <see cref="OnGroupJoinRequestAsync"/>。</para>
+    /// </summary>
+    private static async Task OnGroupMemberAddAsync(QQOfficialGroupMemberEventArgs args)
+    {
+        string memberOpenId = args.MemberOpenId;
+
+        try
+        {
+            Adaptor? adaptor = App.Adaptor;
+            if (adaptor is null)
+            {
+                return;
+            }
+
+            await adaptor.SendMessage(
+                SendTarget.Group(args.GroupOpenId),
+                new MessageContent()
+                    .AddMarkdown(
+                        "# 👋 有新成员进群\n" +
+                        $"- 成员 OpenID：`{memberOpenId}`\n" +
+                        $"- 邀请人 / 审批人：`{args.OperatorMemberOpenId}`\n\n" +
+                        "> ✅ 是熟人就无需操作\n" +
+                        "> 🚫 不认识、疑似拉人的，点下面按钮把 TA 加入群黑名单")
+                    .AddButton(MenuKit.Keyboard(
+                        ("拉黑该成员", $"/群 黑名单 添加 {memberOpenId}"),
+                        ("解除拉黑", $"/群 黑名单 删除 {memberOpenId}"),
+                        ("黑名单列表", "/黑名单列表"))));
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[群成员] 进群通知发送失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 有人退群 → 提示管理员是否拉黑。
+    ///
+    /// <para>退群可能是自己走的、也可能是被踢的，所以**不自动拉黑**，只给按钮 ——
+    /// 正常退坑的玩家不该被误伤。</para>
+    /// </summary>
+    private static async Task OnGroupMemberRemoveAsync(QQOfficialGroupMemberEventArgs args)
+    {
+        string memberOpenId = args.MemberOpenId;
+
+        try
+        {
+            Adaptor? adaptor = App.Adaptor;
+            if (adaptor is null)
+            {
+                return;
+            }
+
+            await adaptor.SendMessage(
+                SendTarget.Group(args.GroupOpenId),
+                new MessageContent()
+                    .AddMarkdown(
+                        "# 🚪 有成员退群\n" +
+                        $"- 成员 OpenID：`{memberOpenId}`\n" +
+                        $"- 操作人：`{args.OperatorMemberOpenId}`\n\n" +
+                        "> 是否拉黑该成员？\n" +
+                        "> ✅ 正常退坑 → 忽略即可\n" +
+                        "> 🚫 退群前捣乱 / 反复进出 → 点按钮加入群黑名单")
+                    .AddButton(MenuKit.Keyboard(
+                        ("拉黑该成员", $"/群 黑名单 添加 {memberOpenId}"),
+                        ("解除拉黑", $"/群 黑名单 删除 {memberOpenId}"),
+                        ("黑名单列表", "/黑名单列表"))));
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[群成员] 退群通知发送失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// 入群申请审核（对应 <c>GroupJoinReview = auto</c>）。
     /// <para>命中云黑（昵称或 OpenID）→ 自动拒绝并拉黑；其余自动通过。
     /// 默认只在控制台留痕、不打扰群管理员，需要群里留档就把 <c>GroupJoinNotify</c> 打开。</para>
@@ -221,7 +300,16 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
     /// </summary>
     private static async Task OnGroupJoinRequestAsync(QQOfficialGroupJoinRequestEventArgs args)
     {
-        if (!string.Equals(App.Config.GroupJoinReview, "auto", StringComparison.OrdinalIgnoreCase))
+        string mode = App.Config.GroupJoinReview;
+
+        // 默认人工审批：不自动放人，把申请推给管理员点按钮。
+        if (string.Equals(mode, "manual", StringComparison.OrdinalIgnoreCase))
+        {
+            await NotifyJoinRequestAsync(args);
+            return;
+        }
+
+        if (!string.Equals(mode, "auto", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -251,6 +339,81 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         if (App.Config.GroupJoinNotify)
         {
             await NotifyJoinResultAsync(args, banned);
+        }
+    }
+
+    /// <summary>
+    /// 把一条入群申请推到群里，附「批准 / 拒绝 / 拒绝并拉黑」按钮（人工审批模式）。
+    ///
+    /// <para>同时把 <c>join_request_id</c> 落库：QQ 的审批接口必须带它，否则报
+    /// <c>40103007 无效或已过期的审批令牌</c>；而按钮点击只回传固定指令文本，
+    /// 拿不到事件里的 id，只能按 memberOpenId 反查。</para>
+    /// </summary>
+    private static async Task NotifyJoinRequestAsync(QQOfficialGroupJoinRequestEventArgs args)
+    {
+        try
+        {
+            Adaptor? adaptor = App.Adaptor;
+            if (adaptor is null)
+            {
+                return;
+            }
+
+            // 先落库再发消息：万一发送失败，/审批入群 仍然能正常工作。
+            DataStore.UpsertJoinRequest(new JoinRequestRecord
+            {
+                GroupOpenId = args.GroupOpenId,
+                MemberOpenId = args.MemberOpenId,
+                JoinRequestId = args.RequestId,
+                UserName = DescribeJoinUser(args),
+                AppliedAtUtc = DateTime.UtcNow,
+            });
+
+            StringBuilder builder = new();
+            builder.Append("# 🍥 入群审核\n\n");
+            builder.Append($"用户：**{DescribeJoinUser(args)}**\n");
+            builder.Append($"OpenID：`{args.MemberOpenId}`\n");
+
+            if (args.ReviewQuestions.Count > 0)
+            {
+                foreach (QQOfficialJoinRequestQuestion qa in args.ReviewQuestions)
+                {
+                    builder.Append($"{qa.Question}：{qa.Answer}\n");
+                }
+            }
+            else if (!string.IsNullOrEmpty(args.Comment))
+            {
+                builder.Append($"留言：{args.Comment}\n");
+            }
+
+            if (!string.IsNullOrEmpty(args.ApplySource))
+            {
+                builder.Append($"来源：{args.ApplySource}\n");
+            }
+
+            if (!string.IsNullOrEmpty(args.RiskTips))
+            {
+                builder.Append($"\n> ⚠️ 平台风险提示：{args.RiskTips}\n");
+            }
+
+            builder.Append(IsJoinBlacklisted(args)
+                ? "\n> 🔴 **该用户命中云黑名单**，建议「拒绝并拉黑」。"
+                : "\n> 通过前请确认用户身份。");
+
+            await adaptor.SendMessage(
+                SendTarget.Group(args.GroupOpenId),
+                new MessageContent()
+                    .AddMarkdown(builder.ToString())
+                    .AddButton(MenuKit.Keyboard(
+                        ("批准", $"/审批入群 {args.MemberOpenId} 同意"),
+                        ("拒绝", $"/审批入群 {args.MemberOpenId} 拒绝"),
+                        ("拒绝并拉黑", $"/审批入群 {args.MemberOpenId} 拒绝 拉黑"))));
+
+            Message.Green($"[CaiBotWindy] 入群申请已推送待审：{DescribeJoinUser(args)}");
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[CaiBotWindy] 推送入群申请失败: {ex.Message}");
         }
     }
 

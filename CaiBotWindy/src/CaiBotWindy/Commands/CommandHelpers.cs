@@ -3,6 +3,7 @@ using CaiBotWindy.Net;
 using CaiBotWindy.Protocol;
 using Newtonsoft.Json.Linq;
 using Windy.SDK.Adaptor;
+using Windy.SDK.Adaptor.QQOfficial;
 using Windy.SDK.Command;
 
 namespace CaiBotWindy.Commands;
@@ -12,13 +13,34 @@ internal static class CommandHelpers
 {
     public static Task ReplyAsync(CommandArgs args, string markdown, ButtonKeyboard? keyboard = null)
     {
-        MessageContent content = new MessageContent().AddMarkdown(markdown);
+        // 回复顶部先 @ 一下发指令的人：QQ 会把它渲染成头像 + 昵称，
+        // 群里指令一多就能一眼看出这条是回给谁的。
+        string mention = BuildMention(args);
+        string body = string.IsNullOrEmpty(mention) ? markdown : $"{mention}\n{markdown}";
+
+        MessageContent content = new MessageContent().AddMarkdown(body);
         if (keyboard is not null)
         {
             content.AddButton(keyboard);
         }
 
         return args.Adaptor.SendMessage(content);
+    }
+
+    /// <summary>
+    /// 生成 @ 标签。<c>&lt;qqbot-at-user&gt;</c> 是 QQ 官方 markdown 专有的，
+    /// 换别的适配器（如 Milky）会原样显示成乱码，所以这里做适配器判断。
+    /// </summary>
+    private static string BuildMention(CommandArgs args)
+    {
+        // args.Adaptor 是消息级 API 包装（AdaptorMessageApi），类型判断要用全局的 App.Adaptor。
+        if (App.Adaptor is not QQOfficialAdaptor)
+        {
+            return "";
+        }
+
+        string authorId = args.Message.AuthorId;
+        return string.IsNullOrEmpty(authorId) ? "" : QQOfficialLabel.At(authorId);
     }
 
     /// <summary>解析可选的「服务器序号」参数；缺省或非法时返回 0（表示自动选择）。</summary>

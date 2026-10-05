@@ -24,9 +24,16 @@ public static class HelpCommands
         ("白名单", "/白名单菜单"),
         ("菜单", "/菜单"));
 
+    /// <summary>一条「可点击指令 + 说明」。统一带列表前缀，让各帮助菜单风格一致。</summary>
     private static string Tag(string command, string description)
     {
-        return $"{QQOfficialLabel.CommandInput(command)} {description}";
+        return $"- {QQOfficialLabel.CommandInput(command)} {description}";
+    }
+
+    /// <summary>帮助菜单里的分组小标题。</summary>
+    private static string Group(string title)
+    {
+        return $"\n**{title}**\n";
     }
 
     [Command("菜单", "查看功能菜单", MessageScene.Group, "帮助")]
@@ -35,9 +42,16 @@ public static class HelpCommands
     public static Task MenuAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
-            "# 🍥 帮助\n> 泰拉瑞亚服务器管理机器人\n> 不看文档是🐖\n\n" +
-            $"绑定服务器：{Tag("/添加服务器 ", "`<IP>` `<端口>` `<绑定码>`")}\n" +
-            "绑定码在服务器控制台查看（`[CaiBotLite] 您的服务器绑定码为: …`）。",
+            "# 🍥 帮助\n> 泰拉瑞亚服务器管理机器人\n\n" +
+            Group("开始使用") +
+            Tag("/添加服务器 ", "`<IP>` `<端口>` `<绑定码>` 绑定服务器") + "\n" +
+            Tag("/注册 ", "`<QQ邮箱>` `<角色名>` 邮箱注册角色") + "\n" +
+            Tag("/绑定信息", "群 ↔ 机器人 ↔ 服务器 的绑定关系") + "\n" +
+            Tag("/文档", "使用文档（群里以文件下发，可转发）") + "\n" +
+            Tag("/所有指令", "全部指令清单") + "\n" +
+            Tag("/关于", "作者与开源仓库") +
+            "\n\n> 绑定码在**服务器控制台**查看：`[CaiBotLite] 您的服务器绑定码为: …`\n" +
+            "> 下面按钮可进入各功能菜单。",
             MainMenu);
     }
 
@@ -63,17 +77,23 @@ public static class HelpCommands
     public static Task QuickHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
-            "# ⚡ 快捷功能\n" +
-            Tag("/在线", "获取服务器在线玩家") + "\n" +
+            "# ⚡ 快捷功能" +
+            Group("在线与状态") +
+            Tag("/在线", "当前在线玩家") + "\n" +
             Tag("/在线总览", "汇总本群所有服务器的在线玩家") + "\n" +
-            Tag("/延迟", "测量与服务器的连接延迟（别名 `ping`）") + "\n" +
-            Tag("/进度查询", "查询世界 Boss 进度") + "\n" +
+            Tag("/系统状态", "服务器延迟 / 在线 + 本机 CPU / 内存 / 磁盘") + "\n" +
+            Tag("/进度查询", "世界 Boss 进度") +
+            Group("玩家数据") +
             Tag("/查背包", "`<玩家名>` 查询玩家背包") + "\n" +
-            Tag("/排行", "`<类型>` 查询排行榜") + "\n" +
-            Tag("/插件列表", "查看服务器插件 / 模组") + "\n" +
-            Tag("/远程指令", "`<指令>` 在服务器执行指令") + "\n" +
-            Tag("/自踢", "断开所有服务器连接") + "\n" +
-            Tag("/服务器列表", "获取服务器地址端口等"),
+            Tag("/排行", "`<类型>` 排行榜") + "\n" +
+            Tag("/签到", "每日签到领金币") + "\n" +
+            Tag("/查询金币", "金币余额") +
+            Group("服务器") +
+            Tag("/服务器列表", "地址与端口") + "\n" +
+            Tag("/服务器信息", "`<序号>` 详细信息") + "\n" +
+            Tag("/插件列表", "已装插件 / 模组") + "\n" +
+            Tag("/远程指令", "`<指令>` 在服务端执行指令") + "\n" +
+            Tag("/自踢", "断开所有服务器连接"),
             MainMenu);
     }
 
@@ -132,20 +152,30 @@ public static class HelpCommands
     public static Task GroupHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
-            "# #️⃣ 群管理\n" +
-            Tag("/管理列表", "列出机器人管理员") + "\n" +
-            Tag("/添加管理", "`<OpenID>` 添加机器人管理员") + "\n" +
-            Tag("/删除管理", "`<OpenID>` 删除机器人管理员") + "\n" +
+            "# 🍥 群管理" +
+            Group("入群审核") +
+            Tag("/申请列表", "拉取待处理的入群申请") + "\n" +
+            Tag("/审批入群", "`<OpenID>` `<同意|拒绝>` 审批一条申请") + "\n" +
+            Tag("/入群审核", "`<人工|自动|关闭>` 审核方式（**默认人工**）") + "\n" +
+            Tag("/审批策略", "`<列表|开启|关闭>` 平台侧自动审批策略") +
+            Group("禁言") +
+            Tag("/禁言状态", "群禁言状态与当前禁言成员") + "\n" +
+            Tag("/禁言", "`<OpenID>` `<分钟>` 设置禁言（0 = 解除）") +
+            Group("黑名单") +
+            Tag("/黑名单列表", "查看本群黑名单") + "\n" +
+            Tag("/添加黑名单", "`<角色名|OpenID>` 拉黑") + "\n" +
+            Tag("/删除黑名单", "`<角色名|OpenID>` 解除拉黑") + "\n" +
+            Tag("/全局黑名单", "云黑名单（所有绑定服务器共享）") +
+            Group("机器人与群") +
+            Tag("/获取群信息", "本群 ID 等信息") + "\n" +
+            Tag("/管理列表", "机器人管理员名单") + "\n" +
+            Tag("/添加管理", "`<OpenID>` 添加管理员") + "\n" +
+            Tag("/删除管理", "`<OpenID>` 移除管理员") + "\n" +
             Tag("/绑定父群", "`<父群 OpenID>` 绑定父群") + "\n" +
             Tag("/解绑父群", "解除父群绑定") + "\n" +
-            Tag("/获取群信息", "获取本群的 ID 等信息") + "\n" +
             Tag("/设置", "`<项>` `<开|关>` 修改群设置") + "\n" +
-            Tag("/黑名单列表", "查看被屏蔽的玩家") + "\n" +
-            Tag("/添加黑名单", "`<角色名>` 封禁玩家") + "\n" +
-            Tag("/删除黑名单", "`<角色名>` 解封玩家") + "\n" +
-            Tag("/全局黑名单", "查看机器人级黑名单（仅所有者）") + "\n" +
-            Tag("/权限请求", "查询如何获得管理权限") + "\n\n" +
-            "> 重新拉机器人进群即可重置管理员。",
+            Tag("/权限请求", "如何获得管理权限") +
+            "\n\n> 重新拉机器人进群即可重置管理员。",
             MainMenu);
     }
 
@@ -200,5 +230,27 @@ public static class HelpCommands
 
         await args.Adaptor.SendFile(await File.ReadAllBytesAsync(menuFile), "menu.json", "application/json; charset=utf-8");
         await args.Adaptor.SendFile(await File.ReadAllBytesAsync(panelFile), "panels.json", "application/json; charset=utf-8");
+    }
+
+    // ── 关于 ────────────────────────────────────────────────────────────────────
+
+    /// <summary>作者与开源仓库。集中定义在此，换仓库时只改这一处。</summary>
+    public const string RepositoryUrl = "https://github.com/akexin/TShock-CaiBot";
+
+    [Command("关于", "关于本机器人", MessageScene.Group)]
+    [Command("关于", "关于本机器人", MessageScene.GroupAt)]
+    [Command("关于", "关于本机器人", MessageScene.Private)]
+    public static Task AboutAsync(CommandArgs args)
+    {
+        string version = typeof(HelpCommands).Assembly.GetName().Version?.ToString(3) ?? "开发版";
+
+        return CommandHelpers.ReplyAsync(args,
+            "# 🍥 关于\n" +
+            "- 作者：**ak**\n" +
+            $"- 开源仓库：{RepositoryUrl}\n" +
+            $"- 版本：{version}\n" +
+            "- 技术栈：C# / .NET 10 · Windy SDK · TShock\n\n" +
+            "> 本项目完全开源，欢迎提交 Issue 与 PR。",
+            MenuKit.Keyboard(("菜单", "/菜单"), ("帮助", "/帮助"), ("菜单面板", "/菜单面板"), ("我的注册", "/我的注册")));
     }
 }

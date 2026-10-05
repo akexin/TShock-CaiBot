@@ -75,7 +75,17 @@ public sealed class PluginConfig
     ///   <item><c>off</c> —— 完全不介入，交给 QQ 群自身的审核设置。</item>
     /// </list>
     /// </summary>
-    public string GroupJoinReview { get; set; } = "auto";
+    /// <summary>
+    /// 入群申请的审核方式：
+    /// <list type="bullet">
+    /// <item><c>manual</c>（默认）—— 不自动处理，把申请推给群管理员点「同意 / 拒绝」。</item>
+    /// <item><c>auto</c> —— 命中云黑自动拒绝并拉黑，其余自动通过。</item>
+    /// <item><c>off</c> —— 完全不处理，也不通知。</item>
+    /// </list>
+    /// 默认取 <c>manual</c>：自动放人风险高，交由人工判断更稳妥。
+    /// 群内可用 <c>/入群审核</c> 随时切换。
+    /// </summary>
+    public string GroupJoinReview { get; set; } = "manual";
 
     /// <summary>自动处理入群申请后是否往群里发一条结果通知。默认关闭（只写控制台，不打扰管理员）。</summary>
     public bool GroupJoinNotify { get; set; }

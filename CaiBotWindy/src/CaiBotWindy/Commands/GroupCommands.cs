@@ -311,16 +311,20 @@ public static class GroupCommands
 
         string name = args.GetOrDefault(0).Trim();
         GroupRecord group = DataStore.GetOrCreateGroup(args.Message.GroupId ?? "");
+
+        // 名字与 OpenID 都清一遍：进群/退群卡片上的按钮传的是 OpenID，
+        // 而手输指令时填的多半是角色名，两种写法都要能解封。
         int removed = group.Blacklist.RemoveAll(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase));
+        removed += group.BlacklistOpenIds.RemoveAll(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase));
 
         if (removed == 0)
         {
-            await CommandHelpers.ReplyAsync(args, "# ⛔ 该角色不在黑名单中。");
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 该成员不在黑名单中。");
             return;
         }
 
         DataStore.SaveServerChange();
-        await CommandHelpers.ReplyAsync(args, $"# ✅ 已解封 **{name}**");
+        await CommandHelpers.ReplyAsync(args, $"# ✅ 已解除拉黑 **{name}**");
     }
 
     // ── 云黑名单（仅所有者）────────────────────────────────────────────────────
