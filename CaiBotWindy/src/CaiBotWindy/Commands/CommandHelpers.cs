@@ -33,6 +33,17 @@ internal static class CommandHelpers
         string bodyText = code ? MenuKit.ToCodeCard(markdown) : markdown;
         string body = string.IsNullOrEmpty(mention) ? bodyText : $"{mention}\n{bodyText}";
 
+        // 防御：群里不支持 <qqbot-cmd-enter>（点击即执行那个），平台会**整条拒收**：
+        //   40034106 群消息不支持qqbot-cmd-enter
+        // 这里统一降级成 <qqbot-cmd-input>（点击填入输入框），效果相近且各场景都支持。
+        if (!string.IsNullOrEmpty(args.Message.GroupId) && body.Contains("<qqbot-cmd-enter", StringComparison.Ordinal))
+        {
+            body = System.Text.RegularExpressions.Regex.Replace(
+                body,
+                "<qqbot-cmd-enter\\s+text=\"([^\"]*)\"\\s*/>",
+                "<qqbot-cmd-input text=\"$1\" reference=\"false\" />");
+        }
+
         // 多服务器时补一句「命令 + 序号」的用法，省得用户不知道后面能跟数字。
         string hint = BuildServerHint(args);
         if (!string.IsNullOrEmpty(hint))

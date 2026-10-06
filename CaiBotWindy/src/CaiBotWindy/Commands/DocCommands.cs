@@ -194,12 +194,16 @@ public static class DocCommands
     }
 
     /// <summary>
-    /// 把指令名渲染成**蓝色可点击**文字（点一下直接执行）。
-    /// 对应 QQ 的 <c>&lt;qqbot-cmd-enter&gt;</c> 标签 —— 比纯文本指令名好用得多。
+    /// 把指令名渲染成**蓝色可点击**文字。
+    ///
+    /// <para>⚠️ 这里必须用 <c>&lt;qqbot-cmd-input&gt;</c>（点击把指令填进输入框），
+    /// <b>不能用 <c>&lt;qqbot-cmd-enter&gt;</c></b> —— 后者虽然点击即执行，
+    /// 但<b>群消息不支持</b>，平台会直接拒收整条消息：
+    /// <c>40034106 群消息不支持qqbot-cmd-enter</c>。踩过一次。</para>
     /// </summary>
     private static string Cmd(string command)
     {
-        return QQOfficialLabel.CommandEnter(command);
+        return QQOfficialLabel.CommandInput(command);
     }
 
     private static string RenderEntry(MenuEntry entry)
