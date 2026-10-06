@@ -344,6 +344,50 @@ public static class DataStore
         }
     }
 
+    /// <summary>
+    /// 服务器绑定的**有效范围**：自己的 + 祖先链上的父群 + 所有后代子群。
+    ///
+    /// <para>父群与子群看到的是同一批服务器 —— 父群绑一次，名下子群都能用；
+    /// 子群自己绑的，父群也能查看与管理。</para>
+    /// </summary>
+    private static HashSet<string> ResolveServerScope(string groupOpenId)
+    {
+        HashSet<string> scope = [groupOpenId];
+
+        // 向上沿父群链（限深，防止脏数据成环）。
+        string cursor = groupOpenId;
+        for (int depth = 0; depth < 8; depth++)
+        {
+            GroupRecord? group = data.Groups.FirstOrDefault(item => item.GroupOpenId == cursor);
+            if (group is null || string.IsNullOrEmpty(group.ParentGroupOpenId))
+            {
+                break;
+            }
+
+            cursor = group.ParentGroupOpenId;
+            if (!scope.Add(cursor))
+            {
+                break;
+            }
+        }
+
+        // 向下展开所有层级的子群。
+        bool grew = true;
+        for (int depth = 0; grew && depth < 8; depth++)
+        {
+            grew = false;
+            foreach (GroupRecord group in data.Groups.Where(item => scope.Contains(item.ParentGroupOpenId)).ToList())
+            {
+                if (scope.Add(group.GroupOpenId))
+                {
+                    grew = true;
+                }
+            }
+        }
+
+        return scope;
+    }
+
     /// <summary>找出所有把 <paramref name="parentOpenId"/> 认作父群的子群。</summary>
     public static List<GroupRecord> GetChildGroups(string parentOpenId)
     {
@@ -541,11 +585,14 @@ public static class DataStore
     {
         lock (SyncRoot)
         {
+            // 子群与父群共享同一批服务器（范围见 ResolveServerScope）。
+            HashSet<string> scope = ResolveServerScope(groupOpenId);
             List<ServerRecord> servers = data.Servers
-                .Where(item => item.GroupOpenId == groupOpenId)
+                .Where(item => scope.Contains(item.GroupOpenId))
                 .OrderBy(item => item.CreatedAtUtc)
                 .ToList();
 
+            // 序号在每次调用时按当前视图重排：父子群合并后依然连续、无歧义。
             for (int i = 0; i < servers.Count; i++)
             {
                 servers[i].DisplayIndex = i + 1;
