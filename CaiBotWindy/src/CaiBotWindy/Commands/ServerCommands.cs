@@ -57,7 +57,7 @@ public static class ServerCommands
             payload.GetString("process"));
 
         await CommandHelpers.ReplyAsync(args, markdown,
-            MenuKit.Keyboard(("刷新", "/在线"), ("进度查询", "/进度查询"), ("查背包", "/查背包 "), ("菜单", "/菜单")), code: true);
+            MenuKit.Keyboard(("刷新", "/在线"), ("进度查询", "/进度查询"), ("查背包", "/查背包 "), ("菜单", "/菜单")));
     }
 
     // ── 在线总览（跨服务器汇总）────────────────────────────────────────────────
@@ -125,7 +125,7 @@ public static class ServerCommands
 
         await CommandHelpers.ReplyAsync(args,
             MenuKit.RenderOnlineOverview(views, totalOnline, totalMax),
-            MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")), code: true);
+            MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
     }
 
     // ── 系统状态（服务器 + 本机）──────────────────────────────────────────────
@@ -166,7 +166,7 @@ public static class ServerCommands
         AppendHostStatus(builder);
 
         await CommandHelpers.ReplyAsync(args, builder.ToString(),
-            MenuKit.Keyboard(("刷新", "/系统状态"), ("在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")), code: true);
+            MenuKit.Keyboard(("刷新", "/系统状态"), ("在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
     }
 
     /// <summary>单个服务器的状态块：连接、版本、延迟（3 次采样）、在线人数。</summary>
@@ -433,7 +433,7 @@ public static class ServerCommands
         // 服务端支持文本模式（is_text = true）时直接透传。
         if (payload.GetBool("is_text"))
         {
-            await CommandHelpers.ReplyAsync(args, $"# 🍥 世界进度\n{payload.GetString("text")}", code: true);
+            await CommandHelpers.ReplyAsync(args, $"# 🍥 世界进度\n{payload.GetString("text")}");
             return;
         }
 
@@ -476,7 +476,7 @@ public static class ServerCommands
             snapshot.BossLock);
 
         await CommandHelpers.ReplyAsync(args, markdown,
-            MenuKit.Keyboard(("刷新", "/进度查询"), ("在线", "/在线"), ("排行", "/排行"), ("菜单", "/菜单")), code: true);
+            MenuKit.Keyboard(("刷新", "/进度查询"), ("在线", "/在线"), ("排行", "/排行"), ("菜单", "/菜单")));
     }
 
     private static bool progressCardWarningLogged;
@@ -716,13 +716,13 @@ public static class ServerCommands
                 builder.Append($"\n{string.Join('\n', argsList.Select(item => $"- {item}"))}");
             }
 
-            await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
+            await CommandHelpers.ReplyAsync(args, builder.ToString());
             return;
         }
 
         (string title, Dictionary<string, string> lines) = payload.GetRank();
         await CommandHelpers.ReplyAsync(args, MenuKit.RenderRank(title, lines),
-            MenuKit.Keyboard(("在线", "/在线"), ("进度查询", "/进度查询"), ("菜单", "/菜单")), code: true);
+            MenuKit.Keyboard(("在线", "/在线"), ("进度查询", "/进度查询"), ("菜单", "/菜单")));
     }
 
     // ── 插件列表（plugin_list）──────────────────────────────────────────────────
@@ -765,7 +765,7 @@ public static class ServerCommands
         List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
         await CommandHelpers.ReplyAsync(args,
             MenuKit.RenderServerList(servers, token => App.Hub.FindByToken(token)?.IsOpen == true),
-            ServerKeyboard, code: true);
+            ServerKeyboard);
     }
 
     [Command("服务器信息", "查看服务器详细信息", MessageScene.Group, "fwqxx", "serverinfo", "服务器详情")]
@@ -792,7 +792,7 @@ public static class ServerCommands
         }
 
         await CommandHelpers.ReplyAsync(args,
-            MenuKit.RenderServerInfo(target, App.Hub.FindByToken(target.Token)?.IsOpen == true), code: true);
+            MenuKit.RenderServerInfo(target, App.Hub.FindByToken(target.Token)?.IsOpen == true));
     }
 
     // ── 自踢（self_kick）───────────────────────────────────────────────────────

@@ -77,7 +77,7 @@ public static class DocCommands
                 "> 解绑：`/服务器 解绑 <序号>`　看详细状态：`/系统状态`");
         }
 
-        await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
+        await CommandHelpers.ReplyAsync(args, builder.ToString());
     }
 
     // ── /文档 ──────────────────────────────────────────────────────────────────

@@ -14,23 +14,23 @@ internal static class CommandHelpers
 {
     /// <summary>
     /// 统一的指令回复入口。
-    /// <para><paramref name="card"/>=true 按**结构化卡片**渲染（<see cref="MenuKit.ToCard"/>）。</para>
-    /// <para><paramref name="code"/>=true 走**卡片头 + 代码块正文**（<see cref="MenuKit.ToCodeCard"/>），
-    /// 用于在线列表、排行榜、日志这类需要等宽对齐的多行输出。</para>
+    ///
+    /// <para><b>默认就是普通 Markdown</b>，只做两件附加的事：顶部 @ 提问者、多服务器时补序号提示。</para>
+    ///
+    /// <para><paramref name="code"/>=true 时正文进代码块（<see cref="MenuKit.ToCodeCard"/>），
+    /// <b>只给插件列表 / 日志这类超长清单用</b> —— 等宽排版能对齐、又不会挤乱。
+    /// 曾经把所有输出都套上「卡片头 + 分隔线」，观感太重，已回退。</para>
     /// </summary>
     public static Task ReplyAsync(
         CommandArgs args,
         string markdown,
         ButtonKeyboard? keyboard = null,
-        bool card = true,
         bool code = false)
     {
         // 回复顶部先 @ 一下发指令的人：QQ 会把它渲染成头像 + 昵称，
         // 群里指令一多就能一眼看出这条是回给谁的。
         string mention = BuildMention(args);
-        string bodyText = code
-            ? MenuKit.ToCodeCard(markdown)
-            : card ? MenuKit.ToCard(markdown) : markdown;
+        string bodyText = code ? MenuKit.ToCodeCard(markdown) : markdown;
         string body = string.IsNullOrEmpty(mention) ? bodyText : $"{mention}\n{bodyText}";
 
         // 多服务器时补一句「命令 + 序号」的用法，省得用户不知道后面能跟数字。

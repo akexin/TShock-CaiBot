@@ -88,7 +88,7 @@ public static class GroupManageCommands
             builder.Append("\n> 审批：`/审批入群 <成员OpenID> 同意` 或 `/审批入群 <成员OpenID> 拒绝 [拉黑]`\n" +
                            "> 也可以直接点群内卡片上的按钮。");
 
-            await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
+            await CommandHelpers.ReplyAsync(args, builder.ToString());
         }
         catch (Exception ex)
         {
@@ -218,7 +218,7 @@ public static class GroupManageCommands
 
             builder.Append("\n\n> 设置禁言：`/禁言 <成员OpenID> <分钟>`（0 分钟 = 解除）");
 
-            await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
+            await CommandHelpers.ReplyAsync(args, builder.ToString());
         }
         catch (Exception ex)
         {
