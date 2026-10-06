@@ -68,6 +68,13 @@ public sealed class PluginConfig
     public string StorageDirectory { get; set; } = "Config/CaiBotWindy";
 
     /// <summary>
+    /// TShock 服务端的日志目录（<c>/日志</c> 指令读这里）。
+    /// 相对路径按机器人运行目录（<c>CaiBotWindy\deploy\</c>）解析，
+    /// 默认值指向同仓库下的 TShock 服务端；机器人单独部署时改成绝对路径或共享目录。
+    /// </summary>
+    public string TShockLogDirectory { get; set; } = "../../TShock-Server/tshock/logs";
+
+    /// <summary>
     /// 入群申请的审核策略。
     /// <list type="bullet">
     ///   <item><c>auto</c>（默认）—— 命中云黑自动拒绝并拉黑，其余自动通过；</item>
