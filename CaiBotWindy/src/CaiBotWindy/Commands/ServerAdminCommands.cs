@@ -8,8 +8,8 @@ namespace CaiBotWindy.Commands;
 /// <summary>服务器绑定管理：添加 / 修改 / 删除（对应 CaiBotLite 的服务器管理菜单）。</summary>
 public static class ServerAdminCommands
 {
-    [Command("添加服务器", "绑定一台服务器", MessageScene.Group)]
-    [Command("添加服务器", "绑定一台服务器", MessageScene.GroupAt)]
+    [Command("添加服务器", "绑定一台服务器", MessageScene.Group, "tjfwq", "addserver")]
+    [Command("添加服务器", "绑定一台服务器", MessageScene.GroupAt, "tjfwq", "addserver")]
     public static async Task AddServerAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -81,8 +81,8 @@ public static class ServerAdminCommands
             "> 若长时间没有上线，请确认服务端控制台已出现「Bot连接成功」。");
     }
 
-    [Command("修改服务器", "修改服务器地址端口", MessageScene.Group)]
-    [Command("修改服务器", "修改服务器地址端口", MessageScene.GroupAt)]
+    [Command("修改服务器", "修改服务器地址端口", MessageScene.Group, "xgfwq", "editserver")]
+    [Command("修改服务器", "修改服务器地址端口", MessageScene.GroupAt, "xgfwq", "editserver")]
     public static async Task EditServerAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -122,8 +122,8 @@ public static class ServerAdminCommands
             $"# ✅ 服务器 {index} 已更新\n- 新地址：`{target.Ip}:{target.Port}`");
     }
 
-    [Command("删除服务器", "删除已绑定的服务器", MessageScene.Group)]
-    [Command("删除服务器", "删除已绑定的服务器", MessageScene.GroupAt)]
+    [Command("删除服务器", "删除已绑定的服务器", MessageScene.Group, "scfwq", "delserver")]
+    [Command("删除服务器", "删除已绑定的服务器", MessageScene.GroupAt, "scfwq", "delserver")]
     public static async Task DeleteServerAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))

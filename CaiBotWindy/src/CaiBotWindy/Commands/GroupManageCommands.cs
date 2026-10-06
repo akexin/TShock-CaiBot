@@ -30,8 +30,8 @@ public static class GroupManageCommands
 
     // ── 入群申请列表 ────────────────────────────────────────────────────────────
 
-    [Command("申请列表", "拉取入群申请列表", MessageScene.Group)]
-    [Command("申请列表", "拉取入群申请列表", MessageScene.GroupAt)]
+    [Command("申请列表", "拉取入群申请列表", MessageScene.Group, "sqlb", "joins", "入群申请")]
+    [Command("申请列表", "拉取入群申请列表", MessageScene.GroupAt, "sqlb", "joins", "入群申请")]
     public static async Task JoinRequestListAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -88,7 +88,7 @@ public static class GroupManageCommands
             builder.Append("\n> 审批：`/审批入群 <成员OpenID> 同意` 或 `/审批入群 <成员OpenID> 拒绝 [拉黑]`\n" +
                            "> 也可以直接点群内卡片上的按钮。");
 
-            await CommandHelpers.ReplyAsync(args, builder.ToString());
+            await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
         }
         catch (Exception ex)
         {
@@ -101,8 +101,8 @@ public static class GroupManageCommands
 
     // ── 入群申请审批 ────────────────────────────────────────────────────────────
 
-    [Command("审批入群", "审批一条入群申请（同意 | 拒绝 [拉黑]）", MessageScene.Group)]
-    [Command("审批入群", "审批一条入群申请（同意 | 拒绝 [拉黑]）", MessageScene.GroupAt)]
+    [Command("审批入群", "审批一条入群申请（同意 | 拒绝 [拉黑]）", MessageScene.Group, "spjr", "approve", "批准入群")]
+    [Command("审批入群", "审批一条入群申请（同意 | 拒绝 [拉黑]）", MessageScene.GroupAt, "spjr", "approve", "批准入群")]
     public static async Task ApproveJoinRequestAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -169,8 +169,8 @@ public static class GroupManageCommands
 
     // ── 禁言 ────────────────────────────────────────────────────────────────────
 
-    [Command("禁言状态", "查询群禁言状态与禁言成员", MessageScene.Group)]
-    [Command("禁言状态", "查询群禁言状态与禁言成员", MessageScene.GroupAt)]
+    [Command("禁言状态", "查询群禁言状态与禁言成员", MessageScene.Group, "jyzt", "mutestatus", "禁言查询")]
+    [Command("禁言状态", "查询群禁言状态与禁言成员", MessageScene.GroupAt, "jyzt", "mutestatus", "禁言查询")]
     public static async Task MuteStatusAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -218,7 +218,7 @@ public static class GroupManageCommands
 
             builder.Append("\n\n> 设置禁言：`/禁言 <成员OpenID> <分钟>`（0 分钟 = 解除）");
 
-            await CommandHelpers.ReplyAsync(args, builder.ToString());
+            await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
         }
         catch (Exception ex)
         {
@@ -228,8 +228,8 @@ public static class GroupManageCommands
         }
     }
 
-    [Command("禁言", "设置群成员禁言（0 分钟解除）", MessageScene.Group)]
-    [Command("禁言", "设置群成员禁言（0 分钟解除）", MessageScene.GroupAt)]
+    [Command("禁言", "设置群成员禁言（0 分钟解除）", MessageScene.Group, "jy", "mute", "禁言成员")]
+    [Command("禁言", "设置群成员禁言（0 分钟解除）", MessageScene.GroupAt, "jy", "mute", "禁言成员")]
     public static async Task MuteAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -272,8 +272,8 @@ public static class GroupManageCommands
 
     // ── 入群自动审批策略 ────────────────────────────────────────────────────────
 
-    [Command("审批策略", "入群自动审批策略（列表 | 开启 | 关闭）", MessageScene.Group)]
-    [Command("审批策略", "入群自动审批策略（列表 | 开启 | 关闭）", MessageScene.GroupAt)]
+    [Command("审批策略", "入群自动审批策略（列表 | 开启 | 关闭）", MessageScene.Group, "spcl", "strategy", "自动审批")]
+    [Command("审批策略", "入群自动审批策略（列表 | 开启 | 关闭）", MessageScene.GroupAt, "spcl", "strategy", "自动审批")]
     public static async Task StrategyAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -378,8 +378,8 @@ public static class GroupManageCommands
 
     // ── 入群审核模式（机器人侧开关，默认人工）──────────────────────────────────
 
-    [Command("入群审核", "入群申请审核方式（自动 | 人工 | 关闭）", MessageScene.Group)]
-    [Command("入群审核", "入群申请审核方式（自动 | 人工 | 关闭）", MessageScene.GroupAt)]
+    [Command("入群审核", "入群申请审核方式（自动 | 人工 | 关闭）", MessageScene.Group, "rqsh", "joinreview", "审核方式")]
+    [Command("入群审核", "入群申请审核方式（自动 | 人工 | 关闭）", MessageScene.GroupAt, "rqsh", "joinreview", "审核方式")]
     public static async Task JoinReviewAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))

@@ -14,16 +14,31 @@ internal static class CommandHelpers
 {
     /// <summary>
     /// 统一的指令回复入口。
-    /// <para>默认按**结构化卡片**渲染（见 <see cref="MenuKit.ToCard"/>），
-    /// 传 <paramref name="card"/>=false 可退回原始 Markdown。</para>
+    /// <para><paramref name="card"/>=true 按**结构化卡片**渲染（<see cref="MenuKit.ToCard"/>）。</para>
+    /// <para><paramref name="code"/>=true 走**卡片头 + 代码块正文**（<see cref="MenuKit.ToCodeCard"/>），
+    /// 用于在线列表、排行榜、日志这类需要等宽对齐的多行输出。</para>
     /// </summary>
-    public static Task ReplyAsync(CommandArgs args, string markdown, ButtonKeyboard? keyboard = null, bool card = true)
+    public static Task ReplyAsync(
+        CommandArgs args,
+        string markdown,
+        ButtonKeyboard? keyboard = null,
+        bool card = true,
+        bool code = false)
     {
         // 回复顶部先 @ 一下发指令的人：QQ 会把它渲染成头像 + 昵称，
         // 群里指令一多就能一眼看出这条是回给谁的。
         string mention = BuildMention(args);
-        string bodyText = card ? MenuKit.ToCard(markdown) : markdown;
+        string bodyText = code
+            ? MenuKit.ToCodeCard(markdown)
+            : card ? MenuKit.ToCard(markdown) : markdown;
         string body = string.IsNullOrEmpty(mention) ? bodyText : $"{mention}\n{bodyText}";
+
+        // 多服务器时补一句「命令 + 序号」的用法，省得用户不知道后面能跟数字。
+        string hint = BuildServerHint(args);
+        if (!string.IsNullOrEmpty(hint))
+        {
+            body += "\n" + hint;
+        }
 
         MessageContent content = new MessageContent().AddMarkdown(body);
         if (keyboard is not null)
@@ -32,6 +47,29 @@ internal static class CommandHelpers
         }
 
         return args.Adaptor.SendMessage(content);
+    }
+
+    /// <summary>会用到服务器序号的指令 —— 只有这些的回复末尾才追加序号提示。</summary>
+    private static readonly HashSet<string> ServerScopedCommands =
+    [
+        "在线", "在线总览", "查背包", "查看地图", "下载地图", "下载小地图",
+        "排行", "插件列表", "系统状态", "远程指令", "进度查询",
+    ];
+
+    /// <summary>
+    /// 本群绑定了多台服务器时，列出 `/命令 1`、`/命令 2` 这样的写法。
+    /// 只有一台服务器就不打扰（提示反而占篇幅）。
+    /// </summary>
+    private static string BuildServerHint(CommandArgs args)
+    {
+        string? groupOpenId = args.Message.GroupId;
+        if (string.IsNullOrEmpty(groupOpenId) || !ServerScopedCommands.Contains(args.CommandName))
+        {
+            return "";
+        }
+
+        List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
+        return servers.Count <= 1 ? "" : MenuKit.ServerIndexHint(servers, $"/{args.CommandName}");
     }
 
     /// <summary>

@@ -21,9 +21,9 @@ public static class SearchCommands
 
     // ── 物品 ────────────────────────────────────────────────────────────────────
 
-    [Command("si", "搜索物品", MessageScene.Group, "搜物品")]
-    [Command("si", "搜索物品", MessageScene.GroupAt, "搜物品")]
-    [Command("si", "搜索物品", MessageScene.Private, "搜物品")]
+    [Command("si", "搜索物品", MessageScene.Group, "搜物品", "item", "wp")]
+    [Command("si", "搜索物品", MessageScene.GroupAt, "搜物品", "item", "wp")]
+    [Command("si", "搜索物品", MessageScene.Private, "搜物品", "item", "wp")]
     public static Task SearchItemAsync(CommandArgs args)
     {
         const string Title = "# ☾搜物品☽";
@@ -64,9 +64,9 @@ public static class SearchCommands
 
     // ── 生物 ────────────────────────────────────────────────────────────────────
 
-    [Command("sn", "搜索生物", MessageScene.Group, "搜生物")]
-    [Command("sn", "搜索生物", MessageScene.GroupAt, "搜生物")]
-    [Command("sn", "搜索生物", MessageScene.Private, "搜生物")]
+    [Command("sn", "搜索生物", MessageScene.Group, "搜生物", "npc", "sw")]
+    [Command("sn", "搜索生物", MessageScene.GroupAt, "搜生物", "npc", "sw")]
+    [Command("sn", "搜索生物", MessageScene.Private, "搜生物", "npc", "sw")]
     public static Task SearchNpcAsync(CommandArgs args)
     {
         const string Title = "# ☾搜生物☽";
@@ -96,9 +96,9 @@ public static class SearchCommands
 
     // ── 弹幕 ────────────────────────────────────────────────────────────────────
 
-    [Command("sp", "搜索弹幕", MessageScene.Group, "搜弹幕")]
-    [Command("sp", "搜索弹幕", MessageScene.GroupAt, "搜弹幕")]
-    [Command("sp", "搜索弹幕", MessageScene.Private, "搜弹幕")]
+    [Command("sp", "搜索弹幕", MessageScene.Group, "搜弹幕", "proj", "dm")]
+    [Command("sp", "搜索弹幕", MessageScene.GroupAt, "搜弹幕", "proj", "dm")]
+    [Command("sp", "搜索弹幕", MessageScene.Private, "搜弹幕", "proj", "dm")]
     public static Task SearchProjectileAsync(CommandArgs args)
     {
         const string Title = "# ☾搜弹幕☽";
@@ -116,9 +116,9 @@ public static class SearchCommands
 
     // ── 增益 ────────────────────────────────────────────────────────────────────
 
-    [Command("sb", "搜索增益", MessageScene.Group, "搜增益")]
-    [Command("sb", "搜索增益", MessageScene.GroupAt, "搜增益")]
-    [Command("sb", "搜索增益", MessageScene.Private, "搜增益")]
+    [Command("sb", "搜索增益", MessageScene.Group, "搜增益", "buff", "zy")]
+    [Command("sb", "搜索增益", MessageScene.GroupAt, "搜增益", "buff", "zy")]
+    [Command("sb", "搜索增益", MessageScene.Private, "搜增益", "buff", "zy")]
     public static Task SearchBuffAsync(CommandArgs args)
     {
         const string Title = "# ☾搜增益☽";
@@ -133,9 +133,9 @@ public static class SearchCommands
 
     // ── 修饰语 ──────────────────────────────────────────────────────────────────
 
-    [Command("sx", "搜索修饰语", MessageScene.Group, "搜修饰", "搜修饰语")]
-    [Command("sx", "搜索修饰语", MessageScene.GroupAt, "搜修饰", "搜修饰语")]
-    [Command("sx", "搜索修饰语", MessageScene.Private, "搜修饰", "搜修饰语")]
+    [Command("sx", "搜索修饰语", MessageScene.Group, "搜修饰", "搜修饰语", "prefix", "xsy")]
+    [Command("sx", "搜索修饰语", MessageScene.GroupAt, "搜修饰", "搜修饰语", "prefix", "xsy")]
+    [Command("sx", "搜索修饰语", MessageScene.Private, "搜修饰", "搜修饰语", "prefix", "xsy")]
     public static Task SearchPrefixAsync(CommandArgs args)
     {
         const string Title = "# ☾搜修饰☽";

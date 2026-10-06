@@ -20,9 +20,9 @@ public static class RegisterCommands
 
     // ── 注册 ────────────────────────────────────────────────────────────────────
 
-    [Command("注册", "用 QQ 邮箱注册角色", MessageScene.Group)]
-    [Command("注册", "用 QQ 邮箱注册角色", MessageScene.GroupAt)]
-    [Command("注册", "用 QQ 邮箱注册角色", MessageScene.Private)]
+    [Command("注册", "用 QQ 邮箱注册角色", MessageScene.Group, "zc", "register", "邮箱注册", "reg")]
+    [Command("注册", "用 QQ 邮箱注册角色", MessageScene.GroupAt, "zc", "register", "邮箱注册", "reg")]
+    [Command("注册", "用 QQ 邮箱注册角色", MessageScene.Private, "zc", "register", "邮箱注册", "reg")]
     public static async Task RegisterAsync(CommandArgs args)
     {
         if (!args.Require(2))
@@ -46,9 +46,9 @@ public static class RegisterCommands
         await CommandHelpers.ReplyAsync(args, success ? message : $"# ⛔ 注册失败\n> {message}");
     }
 
-    [Command("注册验证", "提交邮箱验证码完成注册", MessageScene.Group)]
-    [Command("注册验证", "提交邮箱验证码完成注册", MessageScene.GroupAt)]
-    [Command("注册验证", "提交邮箱验证码完成注册", MessageScene.Private)]
+    [Command("注册验证", "提交邮箱验证码完成注册", MessageScene.Group, "zcyz", "verify", "验证邮箱")]
+    [Command("注册验证", "提交邮箱验证码完成注册", MessageScene.GroupAt, "zcyz", "verify", "验证邮箱")]
+    [Command("注册验证", "提交邮箱验证码完成注册", MessageScene.Private, "zcyz", "verify", "验证邮箱")]
     public static async Task VerifyAsync(CommandArgs args)
     {
         if (!args.Require(1))
@@ -64,9 +64,9 @@ public static class RegisterCommands
             success ? RegisterKeyboard : null);
     }
 
-    [Command("我的注册", "查看注册状态", MessageScene.Group)]
-    [Command("我的注册", "查看注册状态", MessageScene.GroupAt)]
-    [Command("我的注册", "查看注册状态", MessageScene.Private)]
+    [Command("我的注册", "查看注册状态", MessageScene.Group, "wdzc", "myreg", "我的账号")]
+    [Command("我的注册", "查看注册状态", MessageScene.GroupAt, "wdzc", "myreg", "我的账号")]
+    [Command("我的注册", "查看注册状态", MessageScene.Private, "wdzc", "myreg", "我的账号")]
     public static Task MyRegistrationAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args, RegisterService.Describe(args.Message.AuthorId), RegisterKeyboard);
@@ -74,8 +74,8 @@ public static class RegisterCommands
 
     // ── 管理员：注册上限 ────────────────────────────────────────────────────────
 
-    [Command("注册限制", "查看或设置每个 IP / 设备的注册上限", MessageScene.Group)]
-    [Command("注册限制", "查看或设置每个 IP / 设备的注册上限", MessageScene.GroupAt)]
+    [Command("注册限制", "查看或设置每个 IP / 设备的注册上限", MessageScene.Group, "zcxz", "reglimit", "注册上限")]
+    [Command("注册限制", "查看或设置每个 IP / 设备的注册上限", MessageScene.GroupAt, "zcxz", "reglimit", "注册上限")]
     public static async Task RegisterLimitAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))

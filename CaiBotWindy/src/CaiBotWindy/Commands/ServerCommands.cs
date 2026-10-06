@@ -29,8 +29,8 @@ public static class ServerCommands
 
     // ── 在线列表（player_list）──────────────────────────────────────────────────
 
-    [Command("在线", "查看服务器在线玩家", MessageScene.Group)]
-    [Command("在线", "查看服务器在线玩家", MessageScene.GroupAt)]
+    [Command("在线", "查看服务器在线玩家", MessageScene.Group, "zx", "online", "谁在线", "在线玩家")]
+    [Command("在线", "查看服务器在线玩家", MessageScene.GroupAt, "zx", "online", "谁在线", "在线玩家")]
     public static async Task OnlineAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -57,13 +57,13 @@ public static class ServerCommands
             payload.GetString("process"));
 
         await CommandHelpers.ReplyAsync(args, markdown,
-            MenuKit.Keyboard(("刷新", "/在线"), ("进度查询", "/进度查询"), ("查背包", "/查背包 "), ("菜单", "/菜单")));
+            MenuKit.Keyboard(("刷新", "/在线"), ("进度查询", "/进度查询"), ("查背包", "/查背包 "), ("菜单", "/菜单")), code: true);
     }
 
     // ── 在线总览（跨服务器汇总）────────────────────────────────────────────────
 
-    [Command("在线总览", "查看本群所有服务器的在线玩家", MessageScene.Group)]
-    [Command("在线总览", "查看本群所有服务器的在线玩家", MessageScene.GroupAt)]
+    [Command("在线总览", "查看本群所有服务器的在线玩家", MessageScene.Group, "zxzl", "allonline", "全部在线")]
+    [Command("在线总览", "查看本群所有服务器的在线玩家", MessageScene.GroupAt, "zxzl", "allonline", "全部在线")]
     public static async Task OnlineOverviewAsync(CommandArgs args)
     {
         string? groupOpenId = args.Message.GroupId;
@@ -125,7 +125,7 @@ public static class ServerCommands
 
         await CommandHelpers.ReplyAsync(args,
             MenuKit.RenderOnlineOverview(views, totalOnline, totalMax),
-            MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+            MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")), code: true);
     }
 
     // ── 系统状态（服务器 + 本机）──────────────────────────────────────────────
@@ -133,8 +133,8 @@ public static class ServerCommands
     /// <summary>延迟采样次数。单次测量会被抖动带偏，多测几次取平均才有参考价值。</summary>
     private const int PingSamples = 3;
 
-    [Command("系统状态", "查看服务器与本机运行状态", MessageScene.Group)]
-    [Command("系统状态", "查看服务器与本机运行状态", MessageScene.GroupAt)]
+    [Command("系统状态", "查看服务器与本机运行状态", MessageScene.Group, "xtzt", "status", "机器状态", "状态查询")]
+    [Command("系统状态", "查看服务器与本机运行状态", MessageScene.GroupAt, "xtzt", "status", "机器状态", "状态查询")]
     [Command("状态", "查看服务器与本机运行状态", MessageScene.Group)]
     [Command("状态", "查看服务器与本机运行状态", MessageScene.GroupAt)]
     public static async Task SystemStatusAsync(CommandArgs args)
@@ -166,7 +166,7 @@ public static class ServerCommands
         AppendHostStatus(builder);
 
         await CommandHelpers.ReplyAsync(args, builder.ToString(),
-            MenuKit.Keyboard(("刷新", "/系统状态"), ("在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+            MenuKit.Keyboard(("刷新", "/系统状态"), ("在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")), code: true);
     }
 
     /// <summary>单个服务器的状态块：连接、版本、延迟（3 次采样）、在线人数。</summary>
@@ -364,8 +364,8 @@ public static class ServerCommands
 
     // ── 物品监控（远程调 TShock 侧 /cblmonitor）────────────────────────────────
 
-    [Command("物品监控", "查看或设置背包物品监控阈值", MessageScene.Group)]
-    [Command("物品监控", "查看或设置背包物品监控阈值", MessageScene.GroupAt)]
+    [Command("物品监控", "查看或设置背包物品监控阈值", MessageScene.Group, "wpjk", "monitor", "监控")]
+    [Command("物品监控", "查看或设置背包物品监控阈值", MessageScene.GroupAt, "wpjk", "monitor", "监控")]
     public static async Task ItemMonitorAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -411,8 +411,8 @@ public static class ServerCommands
 
     // ── 世界进度（progress）─────────────────────────────────────────────────────
 
-    [Command("进度查询", "查询世界进度", MessageScene.Group)]
-    [Command("进度查询", "查询世界进度", MessageScene.GroupAt)]
+    [Command("进度查询", "查询世界进度", MessageScene.Group, "jdcx", "progress", "boss进度")]
+    [Command("进度查询", "查询世界进度", MessageScene.GroupAt, "jdcx", "progress", "boss进度")]
     public static async Task ProgressAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -433,7 +433,7 @@ public static class ServerCommands
         // 服务端支持文本模式（is_text = true）时直接透传。
         if (payload.GetBool("is_text"))
         {
-            await CommandHelpers.ReplyAsync(args, $"# 🍥 世界进度\n{payload.GetString("text")}");
+            await CommandHelpers.ReplyAsync(args, $"# 🍥 世界进度\n{payload.GetString("text")}", code: true);
             return;
         }
 
@@ -476,15 +476,15 @@ public static class ServerCommands
             snapshot.BossLock);
 
         await CommandHelpers.ReplyAsync(args, markdown,
-            MenuKit.Keyboard(("刷新", "/进度查询"), ("在线", "/在线"), ("排行", "/排行"), ("菜单", "/菜单")));
+            MenuKit.Keyboard(("刷新", "/进度查询"), ("在线", "/在线"), ("排行", "/排行"), ("菜单", "/菜单")), code: true);
     }
 
     private static bool progressCardWarningLogged;
 
     // ── 查背包（look_bag）───────────────────────────────────────────────────────
 
-    [Command("查背包", "查询玩家背包", MessageScene.Group)]
-    [Command("查背包", "查询玩家背包", MessageScene.GroupAt)]
+    [Command("查背包", "查询玩家背包", MessageScene.Group, "cbb", "bag", "看背包", "背包查询")]
+    [Command("查背包", "查询玩家背包", MessageScene.GroupAt, "cbb", "bag", "看背包", "背包查询")]
     public static async Task LookBagAsync(CommandArgs args)
     {
         if (!args.Require(1))
@@ -549,8 +549,8 @@ public static class ServerCommands
 
     // ── 地图 / 文件 ─────────────────────────────────────────────────────────────
 
-    [Command("查看地图", "获取世界地图预览图", MessageScene.Group)]
-    [Command("查看地图", "获取世界地图预览图", MessageScene.GroupAt)]
+    [Command("查看地图", "获取世界地图预览图", MessageScene.Group, "ckdt", "map", "世界地图")]
+    [Command("查看地图", "获取世界地图预览图", MessageScene.GroupAt, "ckdt", "map", "世界地图")]
     public static async Task MapImageAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -590,8 +590,8 @@ public static class ServerCommands
         await args.Adaptor.SendImage(image, "map.png");
     }
 
-    [Command("下载地图", "下载世界文件", MessageScene.Group)]
-    [Command("下载地图", "下载世界文件", MessageScene.GroupAt)]
+    [Command("下载地图", "下载世界文件", MessageScene.Group, "xzdt", "dlmap", "世界文件")]
+    [Command("下载地图", "下载世界文件", MessageScene.GroupAt, "xzdt", "dlmap", "世界文件")]
     public static async Task WorldFileAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -623,8 +623,8 @@ public static class ServerCommands
         await args.Adaptor.SendFile(data, fileName, "application/octet-stream");
     }
 
-    [Command("下载小地图", "下载小地图文件", MessageScene.Group)]
-    [Command("下载小地图", "下载小地图文件", MessageScene.GroupAt)]
+    [Command("下载小地图", "下载小地图文件", MessageScene.Group, "xzxdt", "tmap", "小地图")]
+    [Command("下载小地图", "下载小地图文件", MessageScene.GroupAt, "xzxdt", "tmap", "小地图")]
     public static async Task MapFileAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -658,8 +658,8 @@ public static class ServerCommands
 
     // ── 排行榜（rank_data）──────────────────────────────────────────────────────
 
-    [Command("排行", "查询服务器排行榜", MessageScene.Group)]
-    [Command("排行", "查询服务器排行榜", MessageScene.GroupAt)]
+    [Command("排行", "查询服务器排行榜", MessageScene.Group, "ph", "rank", "榜单", "排行榜")]
+    [Command("排行", "查询服务器排行榜", MessageScene.GroupAt, "ph", "rank", "榜单", "排行榜")]
     public static async Task RankAsync(CommandArgs args)
     {
         string rankType = args.GetOrDefault(0);
@@ -716,19 +716,19 @@ public static class ServerCommands
                 builder.Append($"\n{string.Join('\n', argsList.Select(item => $"- {item}"))}");
             }
 
-            await CommandHelpers.ReplyAsync(args, builder.ToString());
+            await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
             return;
         }
 
         (string title, Dictionary<string, string> lines) = payload.GetRank();
         await CommandHelpers.ReplyAsync(args, MenuKit.RenderRank(title, lines),
-            MenuKit.Keyboard(("在线", "/在线"), ("进度查询", "/进度查询"), ("菜单", "/菜单")));
+            MenuKit.Keyboard(("在线", "/在线"), ("进度查询", "/进度查询"), ("菜单", "/菜单")), code: true);
     }
 
     // ── 插件列表（plugin_list）──────────────────────────────────────────────────
 
-    [Command("插件列表", "查看服务器插件 / 模组", MessageScene.Group)]
-    [Command("插件列表", "查看服务器插件 / 模组", MessageScene.GroupAt)]
+    [Command("插件列表", "查看服务器插件 / 模组", MessageScene.Group, "cjlb", "plugins", "插件", "模组")]
+    [Command("插件列表", "查看服务器插件 / 模组", MessageScene.GroupAt, "cjlb", "plugins", "插件", "模组")]
     public static async Task PluginListAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -746,13 +746,13 @@ public static class ServerCommands
 
         JObject payload = packet.Payload;
         await CommandHelpers.ReplyAsync(args,
-            MenuKit.RenderPluginList(payload.GetPluginList(), payload.GetBool("is_mod")));
+            MenuKit.RenderPluginList(payload.GetPluginList(), payload.GetBool("is_mod")), code: true);
     }
 
     // ── 服务器列表 / 详情 ───────────────────────────────────────────────────────
 
-    [Command("服务器列表", "查看本群绑定的服务器", MessageScene.Group)]
-    [Command("服务器列表", "查看本群绑定的服务器", MessageScene.GroupAt)]
+    [Command("服务器列表", "查看本群绑定的服务器", MessageScene.Group, "fwqlb", "servers", "服列表")]
+    [Command("服务器列表", "查看本群绑定的服务器", MessageScene.GroupAt, "fwqlb", "servers", "服列表")]
     public static async Task ServerListAsync(CommandArgs args)
     {
         string? groupOpenId = args.Message.GroupId;
@@ -765,11 +765,11 @@ public static class ServerCommands
         List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
         await CommandHelpers.ReplyAsync(args,
             MenuKit.RenderServerList(servers, token => App.Hub.FindByToken(token)?.IsOpen == true),
-            ServerKeyboard);
+            ServerKeyboard, code: true);
     }
 
-    [Command("服务器信息", "查看服务器详细信息", MessageScene.Group)]
-    [Command("服务器信息", "查看服务器详细信息", MessageScene.GroupAt)]
+    [Command("服务器信息", "查看服务器详细信息", MessageScene.Group, "fwqxx", "serverinfo", "服务器详情")]
+    [Command("服务器信息", "查看服务器详细信息", MessageScene.GroupAt, "fwqxx", "serverinfo", "服务器详情")]
     public static async Task ServerInfoAsync(CommandArgs args)
     {
         int index = CommandHelpers.ParseServerIndex(args, 0);
@@ -792,13 +792,13 @@ public static class ServerCommands
         }
 
         await CommandHelpers.ReplyAsync(args,
-            MenuKit.RenderServerInfo(target, App.Hub.FindByToken(target.Token)?.IsOpen == true));
+            MenuKit.RenderServerInfo(target, App.Hub.FindByToken(target.Token)?.IsOpen == true), code: true);
     }
 
     // ── 自踢（self_kick）───────────────────────────────────────────────────────
 
-    [Command("自踢", "断开所有服务器连接", MessageScene.Group)]
-    [Command("自踢", "断开所有服务器连接", MessageScene.GroupAt)]
+    [Command("自踢", "断开所有服务器连接", MessageScene.Group, "zt", "kick", "断开连接")]
+    [Command("自踢", "断开所有服务器连接", MessageScene.GroupAt, "zt", "kick", "断开连接")]
     public static async Task SelfKickAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -838,8 +838,8 @@ public static class ServerCommands
 
     // ── 远程指令（call_command）────────────────────────────────────────────────
 
-    [Command("远程指令", "在服务器上执行指令", MessageScene.Group)]
-    [Command("远程指令", "在服务器上执行指令", MessageScene.GroupAt)]
+    [Command("远程指令", "在服务器上执行指令", MessageScene.Group, "yczl", "rcon", "remote", "执行指令")]
+    [Command("远程指令", "在服务器上执行指令", MessageScene.GroupAt, "yczl", "rcon", "remote", "执行指令")]
     public static async Task RemoteCommandAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -894,8 +894,8 @@ public static class ServerCommands
 
     // ── 解绑服务器（unbind_server）─────────────────────────────────────────────
 
-    [Command("解绑服务器", "解除与服务器的绑定", MessageScene.Group)]
-    [Command("解绑服务器", "解除与服务器的绑定", MessageScene.GroupAt)]
+    [Command("解绑服务器", "解除与服务器的绑定", MessageScene.Group, "jbfwq", "unbindserver")]
+    [Command("解绑服务器", "解除与服务器的绑定", MessageScene.GroupAt, "jbfwq", "unbindserver")]
     public static async Task UnbindServerAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))

@@ -25,8 +25,8 @@ public static class LogCommands
 
     // ── /日志 [页码 | 文件] ────────────────────────────────────────────────────
 
-    [Command("日志", "查看 TShock 服务器日志（分页）", MessageScene.Group)]
-    [Command("日志", "查看 TShock 服务器日志（分页）", MessageScene.GroupAt)]
+    [Command("日志", "查看 TShock 服务器日志（分页）", MessageScene.Group, "rz", "log", "logs", "服务端日志")]
+    [Command("日志", "查看 TShock 服务器日志（分页）", MessageScene.GroupAt, "rz", "log", "logs", "服务端日志")]
     public static async Task LogAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -62,8 +62,8 @@ public static class LogCommands
 
     // ── /日志搜索 <关键词> [页码] ──────────────────────────────────────────────
 
-    [Command("日志搜索", "在 TShock 日志中搜索关键词", MessageScene.Group)]
-    [Command("日志搜索", "在 TShock 日志中搜索关键词", MessageScene.GroupAt)]
+    [Command("日志搜索", "在 TShock 日志中搜索关键词", MessageScene.Group, "rzss", "logsearch", "搜日志")]
+    [Command("日志搜索", "在 TShock 日志中搜索关键词", MessageScene.GroupAt, "rzss", "logsearch", "搜日志")]
     public static async Task SearchLogAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -144,13 +144,14 @@ public static class LogCommands
         builder.Append(keyword is null ? $"　共 {lines.Count} 行　" : $"　命中 {lines.Count} 行　");
         builder.Append($"第 {current} / {totalPages} 页\n\n");
 
+        StringBuilder content = new();
         foreach (string raw in slice)
         {
-            string text = raw.Length > MaxLineLength ? raw[..MaxLineLength] + "…" : raw;
-            builder.Append(text).Append('\n');
+            content.Append(raw.Length > MaxLineLength ? raw[..MaxLineLength] + "…" : raw).Append('\n');
         }
 
-        builder.Append('\n');
+        // 日志是「原样输出」的典型：放进代码块用等宽字体，时间戳能对齐，也不会被当成格式符。
+        builder.Append(MenuKit.CodeBlock(content.ToString())).Append('\n');
         builder.Append(keyword is null
             ? "> 倒序显示，第 1 页最新。筛选用 `/日志搜索 <关键词>`"
             : $"> 倒序显示。换个词搜：`/日志搜索 <关键词>`");

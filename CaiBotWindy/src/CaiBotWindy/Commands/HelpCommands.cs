@@ -36,9 +36,9 @@ public static class HelpCommands
         return $"\n**{title}**\n";
     }
 
-    [Command("菜单", "查看功能菜单", MessageScene.Group, "帮助")]
-    [Command("菜单", "查看功能菜单", MessageScene.GroupAt, "帮助")]
-    [Command("菜单", "查看功能菜单", MessageScene.Private, "帮助")]
+    [Command("菜单", "查看功能菜单", MessageScene.Group, "帮助", "cd", "menu", "帮助菜单")]
+    [Command("菜单", "查看功能菜单", MessageScene.GroupAt, "帮助", "cd", "menu", "帮助菜单")]
+    [Command("菜单", "查看功能菜单", MessageScene.Private, "帮助", "cd", "menu", "帮助菜单")]
     public static Task MenuAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -55,9 +55,9 @@ public static class HelpCommands
             MainMenu);
     }
 
-    [Command("服务器管理", "服务器管理菜单", MessageScene.Group)]
-    [Command("服务器管理", "服务器管理菜单", MessageScene.GroupAt)]
-    [Command("服务器管理", "服务器管理菜单", MessageScene.Private)]
+    [Command("服务器管理", "服务器管理菜单", MessageScene.Group, "fwqgl", "servermanage")]
+    [Command("服务器管理", "服务器管理菜单", MessageScene.GroupAt, "fwqgl", "servermanage")]
+    [Command("服务器管理", "服务器管理菜单", MessageScene.Private, "fwqgl", "servermanage")]
     public static Task ServerHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -71,9 +71,9 @@ public static class HelpCommands
             MainMenu);
     }
 
-    [Command("快捷功能", "快捷功能菜单", MessageScene.Group)]
-    [Command("快捷功能", "快捷功能菜单", MessageScene.GroupAt)]
-    [Command("快捷功能", "快捷功能菜单", MessageScene.Private)]
+    [Command("快捷功能", "快捷功能菜单", MessageScene.Group, "kjgn", "quick")]
+    [Command("快捷功能", "快捷功能菜单", MessageScene.GroupAt, "kjgn", "quick")]
+    [Command("快捷功能", "快捷功能菜单", MessageScene.Private, "kjgn", "quick")]
     public static Task QuickHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -99,9 +99,9 @@ public static class HelpCommands
             MainMenu);
     }
 
-    [Command("地图功能", "地图功能菜单", MessageScene.Group)]
-    [Command("地图功能", "地图功能菜单", MessageScene.GroupAt)]
-    [Command("地图功能", "地图功能菜单", MessageScene.Private)]
+    [Command("地图功能", "地图功能菜单", MessageScene.Group, "dtgn", "mapmenu")]
+    [Command("地图功能", "地图功能菜单", MessageScene.GroupAt, "dtgn", "mapmenu")]
+    [Command("地图功能", "地图功能菜单", MessageScene.Private, "dtgn", "mapmenu")]
     public static Task MapHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -112,9 +112,9 @@ public static class HelpCommands
             MainMenu);
     }
 
-    [Command("白名单菜单", "白名单菜单", MessageScene.Group)]
-    [Command("白名单菜单", "白名单菜单", MessageScene.GroupAt)]
-    [Command("白名单菜单", "白名单菜单", MessageScene.Private)]
+    [Command("白名单菜单", "白名单菜单", MessageScene.Group, "bmdcd", "wlmenu")]
+    [Command("白名单菜单", "白名单菜单", MessageScene.GroupAt, "bmdcd", "wlmenu")]
+    [Command("白名单菜单", "白名单菜单", MessageScene.Private, "bmdcd", "wlmenu")]
     public static Task WhitelistHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -133,9 +133,9 @@ public static class HelpCommands
             MainMenu);
     }
 
-    [Command("图鉴搜索菜单", "图鉴搜索菜单", MessageScene.Group)]
-    [Command("图鉴搜索菜单", "图鉴搜索菜单", MessageScene.GroupAt)]
-    [Command("图鉴搜索菜单", "图鉴搜索菜单", MessageScene.Private)]
+    [Command("图鉴搜索菜单", "图鉴搜索菜单", MessageScene.Group, "tjsscd", "searchmenu")]
+    [Command("图鉴搜索菜单", "图鉴搜索菜单", MessageScene.GroupAt, "tjsscd", "searchmenu")]
+    [Command("图鉴搜索菜单", "图鉴搜索菜单", MessageScene.Private, "tjsscd", "searchmenu")]
     public static Task SearchHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -148,9 +148,9 @@ public static class HelpCommands
             MainMenu);
     }
 
-    [Command("群管理", "群管理菜单", MessageScene.Group)]
-    [Command("群管理", "群管理菜单", MessageScene.GroupAt)]
-    [Command("群管理", "群管理菜单", MessageScene.Private)]
+    [Command("群管理", "群管理菜单", MessageScene.Group, "qglcd", "groupmenu")]
+    [Command("群管理", "群管理菜单", MessageScene.GroupAt, "qglcd", "groupmenu")]
+    [Command("群管理", "群管理菜单", MessageScene.Private, "qglcd", "groupmenu")]
     public static Task GroupHelpAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args,
@@ -186,9 +186,9 @@ public static class HelpCommands
     /// 这两个文件就是 <c>PUT /v2/menu</c> 与 <c>POST /v2/panels</c> 的请求体，
     /// 可直接用 <c>scripts/publish_menu.mjs</c> 发布到 QQ 开放平台。
     /// </summary>
-    [Command("菜单面板", "下发自定义菜单与指令面板配置", MessageScene.Group)]
-    [Command("菜单面板", "下发自定义菜单与指令面板配置", MessageScene.GroupAt)]
-    [Command("菜单面板", "下发自定义菜单与指令面板配置", MessageScene.Private)]
+    [Command("菜单面板", "下发自定义菜单与指令面板配置", MessageScene.Group, "cdyb", "panel", "面板配置")]
+    [Command("菜单面板", "下发自定义菜单与指令面板配置", MessageScene.GroupAt, "cdyb", "panel", "面板配置")]
+    [Command("菜单面板", "下发自定义菜单与指令面板配置", MessageScene.Private, "cdyb", "panel", "面板配置")]
     public static async Task PanelConfigAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -239,9 +239,9 @@ public static class HelpCommands
     /// <summary>作者与开源仓库。集中定义在此，换仓库时只改这一处。</summary>
     public const string RepositoryUrl = "https://github.com/akexin/TShock-CaiBot";
 
-    [Command("关于", "关于本机器人", MessageScene.Group)]
-    [Command("关于", "关于本机器人", MessageScene.GroupAt)]
-    [Command("关于", "关于本机器人", MessageScene.Private)]
+    [Command("关于", "关于本机器人", MessageScene.Group, "gy", "about", "作者", "版本信息")]
+    [Command("关于", "关于本机器人", MessageScene.GroupAt, "gy", "about", "作者", "版本信息")]
+    [Command("关于", "关于本机器人", MessageScene.Private, "gy", "about", "作者", "版本信息")]
     public static Task AboutAsync(CommandArgs args)
     {
         string version = typeof(HelpCommands).Assembly.GetName().Version?.ToString(3) ?? "开发版";

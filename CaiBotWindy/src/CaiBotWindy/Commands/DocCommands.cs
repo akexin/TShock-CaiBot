@@ -13,9 +13,9 @@ public static class DocCommands
 {
     // ── /绑定信息 ──────────────────────────────────────────────────────────────
 
-    [Command("绑定信息", "查看本群与机器人、服务器的绑定关系", MessageScene.Group)]
-    [Command("绑定信息", "查看本群与机器人、服务器的绑定关系", MessageScene.GroupAt)]
-    [Command("绑定信息", "查看本群与机器人、服务器的绑定关系", MessageScene.Private)]
+    [Command("绑定信息", "查看本群与机器人、服务器的绑定关系", MessageScene.Group, "bdxx", "binding", "绑定关系")]
+    [Command("绑定信息", "查看本群与机器人、服务器的绑定关系", MessageScene.GroupAt, "bdxx", "binding", "绑定关系")]
+    [Command("绑定信息", "查看本群与机器人、服务器的绑定关系", MessageScene.Private, "bdxx", "binding", "绑定关系")]
     public static async Task BindingInfoAsync(CommandArgs args)
     {
         string? groupOpenId = args.Message.GroupId;
@@ -77,14 +77,14 @@ public static class DocCommands
                 "> 解绑：`/服务器 解绑 <序号>`　看详细状态：`/系统状态`");
         }
 
-        await CommandHelpers.ReplyAsync(args, builder.ToString());
+        await CommandHelpers.ReplyAsync(args, builder.ToString(), code: true);
     }
 
     // ── /文档 ──────────────────────────────────────────────────────────────────
 
-    [Command("文档", "获取机器人使用文档", MessageScene.Group)]
-    [Command("文档", "获取机器人使用文档", MessageScene.GroupAt)]
-    [Command("文档", "获取机器人使用文档", MessageScene.Private)]
+    [Command("文档", "获取机器人使用文档", MessageScene.Group, "wdoc", "doc", "说明书", "使用文档")]
+    [Command("文档", "获取机器人使用文档", MessageScene.GroupAt, "wdoc", "doc", "说明书", "使用文档")]
+    [Command("文档", "获取机器人使用文档", MessageScene.Private, "wdoc", "doc", "说明书", "使用文档")]
     public static async Task DocAsync(CommandArgs args)
     {
         // 群里直接发文件，方便转发保存；私聊不支持发文件，改为贴出正文。
@@ -114,9 +114,9 @@ public static class DocCommands
 
     // ── /所有指令 ──────────────────────────────────────────────────────────────
 
-    [Command("所有指令", "列出机器人的全部指令", MessageScene.Group)]
-    [Command("所有指令", "列出机器人的全部指令", MessageScene.GroupAt)]
-    [Command("所有指令", "列出机器人的全部指令", MessageScene.Private)]
+    [Command("所有指令", "列出机器人的全部指令", MessageScene.Group, "syzl", "allcmd", "全部指令", "指令列表")]
+    [Command("所有指令", "列出机器人的全部指令", MessageScene.GroupAt, "syzl", "allcmd", "全部指令", "指令列表")]
+    [Command("所有指令", "列出机器人的全部指令", MessageScene.Private, "syzl", "allcmd", "全部指令", "指令列表")]
     public static Task AllCommandsAsync(CommandArgs args)
     {
         return CommandHelpers.ReplyAsync(args, AllCommandList,
@@ -246,7 +246,37 @@ public static class DocCommands
         /注册限制 <数量>                           注册上限（默认 2 个 / IP）
         ```
 
-        ## 五、常见问题
+        ## 五、别名与多服务器
+
+        ### 别名：每条指令都有多种写法
+        记不住中文名也没关系，英文、拼音简写、近义词都能用：
+
+        | 常用指令 | 等价写法 |
+        | --- | --- |
+        | `/在线` | `/zx` `/online` `/谁在线` `/在线玩家` |
+        | `/查背包` | `/cbb` `/bag` `/看背包` |
+        | `/系统状态` | `/xtzt` `/status` `/机器状态` |
+        | `/日志` | `/rz` `/log` `/logs` `/服务端日志` |
+        | `/注册` | `/zc` `/register` `/邮箱注册` |
+        | `/禁言` | `/jy` `/mute` `/禁言成员` |
+        | `/服务器` | `/fwq` `/server` `/srv` |
+        | `/群` | `/q` `/group` |
+
+        > 其余指令的别名见 `/所有指令`。每条指令都有 2~4 个等价写法。
+
+        ### 多服务器：命令后面加数字
+        群里绑了多台服务器时，序号跟在命令后面：
+
+        ```
+        /在线 1
+        /在线 2
+        /远程指令 1 /help
+        /远程指令 2 /help
+        ```
+
+        不带序号时，多数指令会作用于**全部服务器**，或在回复里列出可选序号。
+
+        ## 六、常见问题
 
         **Q：机器人不回话？**
         A：确认机器人已被拉进群，且服务器已绑定（`/绑定信息`）。群聊里需要 @机器人 或直接发指令。

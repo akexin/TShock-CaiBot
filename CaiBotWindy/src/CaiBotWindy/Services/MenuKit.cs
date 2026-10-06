@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
+using CaiBotWindy.Data;
 using CaiBotWindy.Protocol;
 using Windy.SDK;
 using Windy.SDK.Adaptor;
@@ -125,6 +126,67 @@ public static class MenuKit
 
         builder.Append("---");
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// 把整段内容包进 Markdown 代码块。用于日志、清单这类「原样输出」的内容 ——
+    /// 等宽排版不会把宽表格挤乱，也避免内容里的 `#` `*` 被当成格式符。
+    /// </summary>
+    public static string CodeBlock(string content)
+    {
+        // 内容里若自带 ``` 会把代码块提前截断，先替换掉。
+        string safe = content.Replace("```", "'''").TrimEnd();
+        return $"```\n{safe}\n```";
+    }
+
+    /// <summary>
+    /// 多服务器时列出「命令 + 序号」的写法，让用户知道后面能跟数字选服务器。
+    /// 只有一台服务器时返回空串（没必要）。
+    /// </summary>
+    public static string ServerIndexHint(IReadOnlyList<ServerRecord> servers, string command)
+    {
+        if (servers.Count <= 1)
+        {
+            return "";
+        }
+
+        StringBuilder builder = new();
+        builder.Append($"\n> **指定服务器**（本群共 {servers.Count} 台，命令后加序号）\n");
+        foreach (ServerRecord server in servers)
+        {
+            string name = string.IsNullOrWhiteSpace(server.ServerName) ? "未命名" : server.ServerName;
+            builder.Append($"> `{command} {server.DisplayIndex}`　{name}\n");
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// 「卡片头 + 代码块正文」：标题留在外面当卡片头，正文整体进代码块。
+    /// 用于在线列表、排行榜、日志、清单这类**需要等宽对齐**的输出 ——
+    /// 比纯 markdown 列表更整齐，也避免玩家名里的特殊字符被当成格式符。
+    /// </summary>
+    public static string ToCodeCard(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return markdown;
+        }
+
+        string[] lines = markdown.Replace("\r\n", "\n").Split('\n');
+        int headIndex = Array.FindIndex(lines, line => line.StartsWith("# "));
+
+        if (headIndex < 0)
+        {
+            return CodeBlock(markdown);
+        }
+
+        string title = lines[headIndex][2..].Trim();
+        string body = string.Join('\n', lines[(headIndex + 1)..]).Trim('\n');
+
+        return string.IsNullOrWhiteSpace(body)
+            ? $"**{title}**"
+            : $"**{title}**\n---\n{CodeBlock(body)}";
     }
 
     /// <summary>图鉴检索结果过多时的候选列表。</summary>

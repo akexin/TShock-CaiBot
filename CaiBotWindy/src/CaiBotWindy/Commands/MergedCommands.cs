@@ -51,8 +51,8 @@ public static class MergedCommands
         "- `解绑 <序号>`　断开与服务器的连接\n\n" +
         "> 旧写法（`/服务器列表`、`/添加服务器` 等）仍然可用。";
 
-    [Command("服务器", "服务器管理（列表 | 信息 | 添加 | 修改 | 删除 | 解绑）", MessageScene.Group)]
-    [Command("服务器", "服务器管理（列表 | 信息 | 添加 | 修改 | 删除 | 解绑）", MessageScene.GroupAt)]
+    [Command("服务器", "服务器管理（列表 | 信息 | 添加 | 修改 | 删除 | 解绑）", MessageScene.Group, "fwq", "server", "srv")]
+    [Command("服务器", "服务器管理（列表 | 信息 | 添加 | 修改 | 删除 | 解绑）", MessageScene.GroupAt, "fwq", "server", "srv")]
     public static async Task ServerAsync(CommandArgs args)
     {
         string[] rest = Rest(args, 1);
@@ -102,9 +102,9 @@ public static class MergedCommands
         "- `查询 <角色名>`　**管理员**按名字查记录\n\n" +
         "> 玩家自助请用 `/注册`；旧写法（`/添加白名单` 等）仍然可用。";
 
-    [Command("白名单", "白名单管理（添加 | 修改 | 删除 | 我的 | 查询）", MessageScene.Group)]
-    [Command("白名单", "白名单管理（添加 | 修改 | 删除 | 我的 | 查询）", MessageScene.GroupAt)]
-    [Command("白名单", "白名单管理（添加 | 修改 | 删除 | 我的 | 查询）", MessageScene.Private)]
+    [Command("白名单", "白名单管理（添加 | 修改 | 删除 | 我的 | 查询）", MessageScene.Group, "bmd", "whitelist", "白名单管理")]
+    [Command("白名单", "白名单管理（添加 | 修改 | 删除 | 我的 | 查询）", MessageScene.GroupAt, "bmd", "whitelist", "白名单管理")]
+    [Command("白名单", "白名单管理（添加 | 修改 | 删除 | 我的 | 查询）", MessageScene.Private, "bmd", "whitelist", "白名单管理")]
     public static async Task WhitelistAsync(CommandArgs args)
     {
         string[] rest = Rest(args, 1);
@@ -149,8 +149,8 @@ public static class MergedCommands
         "- `小地图`　下载小地图文件 `.tmap`\n\n" +
         "> 旧写法（`/查看地图`、`/下载地图`、`/下载小地图`）仍然可用。";
 
-    [Command("地图", "地图相关（预览 | 下载 | 小地图）", MessageScene.Group)]
-    [Command("地图", "地图相关（预览 | 下载 | 小地图）", MessageScene.GroupAt)]
+    [Command("地图", "地图相关（预览 | 下载 | 小地图）", MessageScene.Group, "dt", "mapkit", "地图工具")]
+    [Command("地图", "地图相关（预览 | 下载 | 小地图）", MessageScene.GroupAt, "dt", "mapkit", "地图工具")]
     public static async Task MapAsync(CommandArgs args)
     {
         string[] rest = Rest(args, 1);
@@ -187,8 +187,8 @@ public static class MergedCommands
         "- `权限`　向群主申请机器人权限\n\n" +
         "> 旧写法（`/管理列表`、`/全局封禁` 等）仍然可用。";
 
-    [Command("群", "群管理（信息 | 设置 | 管理 | 父群 | 黑名单 | 全局 | 权限）", MessageScene.Group)]
-    [Command("群", "群管理（信息 | 设置 | 管理 | 父群 | 黑名单 | 全局 | 权限）", MessageScene.GroupAt)]
+    [Command("群", "群管理（信息 | 设置 | 管理 | 父群 | 黑名单 | 全局 | 权限）", MessageScene.Group, "q", "group", "qgl")]
+    [Command("群", "群管理（信息 | 设置 | 管理 | 父群 | 黑名单 | 全局 | 权限）", MessageScene.GroupAt, "q", "group", "qgl")]
     public static async Task GroupAsync(CommandArgs args)
     {
         string sub = Sub(args);

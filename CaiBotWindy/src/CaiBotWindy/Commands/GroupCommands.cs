@@ -18,8 +18,8 @@ public static class GroupCommands
 
     // ── 管理员白名单 ────────────────────────────────────────────────────────────
 
-    [Command("管理列表", "列出本群机器人管理员", MessageScene.Group)]
-    [Command("管理列表", "列出本群机器人管理员", MessageScene.GroupAt)]
+    [Command("管理列表", "列出本群机器人管理员", MessageScene.Group, "gllb", "admins", "管理员列表")]
+    [Command("管理列表", "列出本群机器人管理员", MessageScene.GroupAt, "gllb", "admins", "管理员列表")]
     public static async Task ListAdminAsync(CommandArgs args)
     {
         string groupOpenId = args.Message.GroupId ?? "";
@@ -46,8 +46,8 @@ public static class GroupCommands
         await CommandHelpers.ReplyAsync(args, builder.ToString(), GroupKeyboard);
     }
 
-    [Command("添加管理", "添加机器人管理员", MessageScene.Group)]
-    [Command("添加管理", "添加机器人管理员", MessageScene.GroupAt)]
+    [Command("添加管理", "添加机器人管理员", MessageScene.Group, "tjgl", "addadmin")]
+    [Command("添加管理", "添加机器人管理员", MessageScene.GroupAt, "tjgl", "addadmin")]
     public static async Task AddAdminAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -77,8 +77,8 @@ public static class GroupCommands
         await CommandHelpers.ReplyAsync(args, $"# ✅ 已添加管理员 `{openId}`");
     }
 
-    [Command("删除管理", "移除机器人管理员", MessageScene.Group)]
-    [Command("删除管理", "移除机器人管理员", MessageScene.GroupAt)]
+    [Command("删除管理", "移除机器人管理员", MessageScene.Group, "scgl", "deladmin")]
+    [Command("删除管理", "移除机器人管理员", MessageScene.GroupAt, "scgl", "deladmin")]
     public static async Task RemoveAdminAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -107,8 +107,8 @@ public static class GroupCommands
 
     // ── 父群 ────────────────────────────────────────────────────────────────────
 
-    [Command("绑定父群", "绑定父群以共享白名单", MessageScene.Group)]
-    [Command("绑定父群", "绑定父群以共享白名单", MessageScene.GroupAt)]
+    [Command("绑定父群", "绑定父群以共享白名单", MessageScene.Group, "bdfq", "bindparent")]
+    [Command("绑定父群", "绑定父群以共享白名单", MessageScene.GroupAt, "bdfq", "bindparent")]
     public static async Task BindParentAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -151,8 +151,8 @@ public static class GroupCommands
         await CommandHelpers.ReplyAsync(args, $"# ✅ 已绑定父群 `{parent}`");
     }
 
-    [Command("解绑父群", "解除父群绑定", MessageScene.Group)]
-    [Command("解绑父群", "解除父群绑定", MessageScene.GroupAt)]
+    [Command("解绑父群", "解除父群绑定", MessageScene.Group, "jbfq", "unbindparent")]
+    [Command("解绑父群", "解除父群绑定", MessageScene.GroupAt, "jbfq", "unbindparent")]
     public static async Task UnbindParentAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -168,8 +168,8 @@ public static class GroupCommands
 
     // ── 群信息 ──────────────────────────────────────────────────────────────────
 
-    [Command("获取群信息", "查看当前群的信息", MessageScene.Group)]
-    [Command("获取群信息", "查看当前群的信息", MessageScene.GroupAt)]
+    [Command("获取群信息", "查看当前群的信息", MessageScene.Group, "hqqxx", "groupinfo", "群信息")]
+    [Command("获取群信息", "查看当前群的信息", MessageScene.GroupAt, "hqqxx", "groupinfo", "群信息")]
     public static async Task GroupInfoAsync(CommandArgs args)
     {
         string groupOpenId = args.Message.GroupId ?? "";
@@ -193,8 +193,8 @@ public static class GroupCommands
 
     // ── 群设置 ──────────────────────────────────────────────────────────────────
 
-    [Command("设置", "修改本群机器人设置", MessageScene.Group, "群设置")]
-    [Command("设置", "修改本群机器人设置", MessageScene.GroupAt, "群设置")]
+    [Command("设置", "修改本群机器人设置", MessageScene.Group, "群设置", "sz", "settings")]
+    [Command("设置", "修改本群机器人设置", MessageScene.GroupAt, "群设置", "sz", "settings")]
     public static async Task SettingsAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -254,8 +254,8 @@ public static class GroupCommands
 
     // ── 黑名单 ──────────────────────────────────────────────────────────────────
 
-    [Command("黑名单列表", "查看本群黑名单", MessageScene.Group)]
-    [Command("黑名单列表", "查看本群黑名单", MessageScene.GroupAt)]
+    [Command("黑名单列表", "查看本群黑名单", MessageScene.Group, "hmdlb", "blacklist", "黑名单")]
+    [Command("黑名单列表", "查看本群黑名单", MessageScene.GroupAt, "hmdlb", "blacklist", "黑名单")]
     public static async Task ListBlacklistAsync(CommandArgs args)
     {
         GroupRecord group = DataStore.GetOrCreateGroup(args.Message.GroupId ?? "");
@@ -266,8 +266,8 @@ public static class GroupCommands
                 : string.Join('\n', group.Blacklist.Select(item => $"- {item}"))));
     }
 
-    [Command("添加黑名单", "封禁玩家", MessageScene.Group)]
-    [Command("添加黑名单", "封禁玩家", MessageScene.GroupAt)]
+    [Command("添加黑名单", "封禁玩家", MessageScene.Group, "tjhmd", "addblacklist", "拉黑")]
+    [Command("添加黑名单", "封禁玩家", MessageScene.GroupAt, "tjhmd", "addblacklist", "拉黑")]
     public static async Task AddBlacklistAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -294,8 +294,8 @@ public static class GroupCommands
         await CommandHelpers.ReplyAsync(args, $"# ✅ 已封禁 **{name}**");
     }
 
-    [Command("删除黑名单", "解封玩家", MessageScene.Group)]
-    [Command("删除黑名单", "解封玩家", MessageScene.GroupAt)]
+    [Command("删除黑名单", "解封玩家", MessageScene.Group, "schmd", "delblacklist", "解除拉黑")]
+    [Command("删除黑名单", "解封玩家", MessageScene.GroupAt, "schmd", "delblacklist", "解除拉黑")]
     public static async Task RemoveBlacklistAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -335,8 +335,8 @@ public static class GroupCommands
     //   设备  ：/全局封禁 设备 <UUID>     换个号、不换客户端也照样拦得住
     //   QQ    ：/全局封禁 qq <OpenID>     封真人，最彻底（也最需要谨慎）
 
-    [Command("全局黑名单", "查看机器人级黑名单", MessageScene.Group)]
-    [Command("全局黑名单", "查看机器人级黑名单", MessageScene.GroupAt)]
+    [Command("全局黑名单", "查看机器人级黑名单", MessageScene.Group, "qjhmd", "gblacklist", "云黑")]
+    [Command("全局黑名单", "查看机器人级黑名单", MessageScene.GroupAt, "qjhmd", "gblacklist", "云黑")]
     public static async Task ListGlobalBlacklistAsync(CommandArgs args)
     {
         if (!await Permissions.RequireOwnerAsync(args))
@@ -383,8 +383,8 @@ public static class GroupCommands
         builder.Append('\n');
     }
 
-    [Command("全局封禁", "加入机器人级黑名单", MessageScene.Group)]
-    [Command("全局封禁", "加入机器人级黑名单", MessageScene.GroupAt)]
+    [Command("全局封禁", "加入机器人级黑名单", MessageScene.Group, "qjfj", "gban", "云黑封禁")]
+    [Command("全局封禁", "加入机器人级黑名单", MessageScene.GroupAt, "qjfj", "gban", "云黑封禁")]
     public static async Task AddGlobalBlacklistAsync(CommandArgs args)
     {
         if (!await Permissions.RequireOwnerAsync(args))
@@ -424,8 +424,8 @@ public static class GroupCommands
         await CommandHelpers.ReplyAsync(args, $"# ✅ 已全局封禁{label}**{value}**（所有群生效）");
     }
 
-    [Command("全局解封", "移出机器人级黑名单", MessageScene.Group)]
-    [Command("全局解封", "移出机器人级黑名单", MessageScene.GroupAt)]
+    [Command("全局解封", "移出机器人级黑名单", MessageScene.Group, "qjjf", "gunban", "云黑解封")]
+    [Command("全局解封", "移出机器人级黑名单", MessageScene.GroupAt, "qjjf", "gunban", "云黑解封")]
     public static async Task RemoveGlobalBlacklistAsync(CommandArgs args)
     {
         if (!await Permissions.RequireOwnerAsync(args))
@@ -490,8 +490,8 @@ public static class GroupCommands
 
     // ── 权限请求 ────────────────────────────────────────────────────────────────
 
-    [Command("权限请求", "查询如何获得管理权限", MessageScene.Group)]
-    [Command("权限请求", "查询如何获得管理权限", MessageScene.GroupAt)]
+    [Command("权限请求", "查询如何获得管理权限", MessageScene.Group, "qqql", "permreq", "申请权限")]
+    [Command("权限请求", "查询如何获得管理权限", MessageScene.GroupAt, "qqql", "permreq", "申请权限")]
     public static async Task RequestPermissionAsync(CommandArgs args)
     {
         await CommandHelpers.ReplyAsync(args,

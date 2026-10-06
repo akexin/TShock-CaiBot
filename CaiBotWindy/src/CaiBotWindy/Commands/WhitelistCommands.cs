@@ -22,9 +22,9 @@ public static class WhitelistCommands
     // 这三个指令原先对所有人生效，等于「报个名字就能过」—— 没有验证，也能用来绕过邮箱注册
     // （把自己改绑到任意未占用的角色名）。因此全部收归管理员。
 
-    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.Group, "绑定")]
-    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.GroupAt, "绑定")]
-    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.Private, "绑定")]
+    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.Group, "绑定", "tjbmd", "addwhitelist")]
+    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.GroupAt, "绑定", "tjbmd", "addwhitelist")]
+    [Command("添加白名单", "管理员手动绑定角色名", MessageScene.Private, "绑定", "tjbmd", "addwhitelist")]
     public static async Task BindAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -75,9 +75,9 @@ public static class WhitelistCommands
             WhitelistKeyboard);
     }
 
-    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.Group, "重新绑定")]
-    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.GroupAt, "重新绑定")]
-    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.Private, "重新绑定")]
+    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.Group, "重新绑定", "xgbmd", "editwhitelist")]
+    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.GroupAt, "重新绑定", "xgbmd", "editwhitelist")]
+    [Command("修改白名单", "管理员重新绑定角色名", MessageScene.Private, "重新绑定", "xgbmd", "editwhitelist")]
     public static async Task RebindAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
@@ -124,9 +124,9 @@ public static class WhitelistCommands
             "> 换绑后该设备需要重新完成一次登录确认。");
     }
 
-    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.Group)]
-    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.GroupAt)]
-    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.Private)]
+    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.Group, "scbmd", "delwhitelist", "解绑")]
+    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.GroupAt, "scbmd", "delwhitelist", "解绑")]
+    [Command("删除白名单", "解除绑定；带角色名则为管理员代删", MessageScene.Private, "scbmd", "delwhitelist", "解绑")]
     public static async Task UnbindAsync(CommandArgs args)
     {
         // 带角色名 = 管理员代删指定玩家的绑定（找回/清理违规账号用）。
@@ -166,9 +166,9 @@ public static class WhitelistCommands
         await CommandHelpers.ReplyAsync(args, $"# ✅ 已解除绑定（{existing.PlayerName}）");
     }
 
-    [Command("我的白名单", "查看自己的绑定信息", MessageScene.Group)]
-    [Command("我的白名单", "查看自己的绑定信息", MessageScene.GroupAt)]
-    [Command("我的白名单", "查看自己的绑定信息", MessageScene.Private)]
+    [Command("我的白名单", "查看自己的绑定信息", MessageScene.Group, "wdbmd", "mywhitelist")]
+    [Command("我的白名单", "查看自己的绑定信息", MessageScene.GroupAt, "wdbmd", "mywhitelist")]
+    [Command("我的白名单", "查看自己的绑定信息", MessageScene.Private, "wdbmd", "mywhitelist")]
     public static async Task MyWhitelistAsync(CommandArgs args)
     {
         UserRecord? existing = DataStore.FindUser(args.Message.AuthorId);
@@ -192,9 +192,9 @@ public static class WhitelistCommands
 
     // ── 设备登录 ────────────────────────────────────────────────────────────────
 
-    [Command("登录", "批准新设备登录", MessageScene.Group)]
-    [Command("登录", "批准新设备登录", MessageScene.GroupAt)]
-    [Command("登录", "批准新设备登录", MessageScene.Private)]
+    [Command("登录", "批准新设备登录", MessageScene.Group, "dl", "login", "登录验证")]
+    [Command("登录", "批准新设备登录", MessageScene.GroupAt, "dl", "login", "登录验证")]
+    [Command("登录", "批准新设备登录", MessageScene.Private, "dl", "login", "登录验证")]
     public static async Task LoginAsync(CommandArgs args)
     {
         // 子命令形式：/登录 确认 <码>、/登录 拒绝 <码>，与 /确认登录、/拒绝登录 等价。
@@ -247,15 +247,15 @@ public static class WhitelistCommands
 
     // ── 登录确认 / 拒绝（群里那张确认卡片的两个按钮就是发这两条指令）──────────────
 
-    [Command("确认登录", "批准一条登录申请", MessageScene.Group)]
-    [Command("确认登录", "批准一条登录申请", MessageScene.GroupAt)]
+    [Command("确认登录", "批准一条登录申请", MessageScene.Group, "qrdl", "confirmlogin")]
+    [Command("确认登录", "批准一条登录申请", MessageScene.GroupAt, "qrdl", "confirmlogin")]
     public static async Task ConfirmLoginAsync(CommandArgs args)
     {
         await ReviewLoginAsync(args, approve: true);
     }
 
-    [Command("拒绝登录", "拒绝一条登录申请", MessageScene.Group)]
-    [Command("拒绝登录", "拒绝一条登录申请", MessageScene.GroupAt)]
+    [Command("拒绝登录", "拒绝一条登录申请", MessageScene.Group, "jjdl", "rejectlogin")]
+    [Command("拒绝登录", "拒绝一条登录申请", MessageScene.GroupAt, "jjdl", "rejectlogin")]
     public static async Task RejectLoginAsync(CommandArgs args)
     {
         await ReviewLoginAsync(args, approve: false);
@@ -315,9 +315,9 @@ public static class WhitelistCommands
 
     // ── 签到 / 金币 ─────────────────────────────────────────────────────────────
 
-    [Command("签到", "每日签到领取金币", MessageScene.Group)]
-    [Command("签到", "每日签到领取金币", MessageScene.GroupAt)]
-    [Command("签到", "每日签到领取金币", MessageScene.Private)]
+    [Command("签到", "每日签到领取金币", MessageScene.Group, "qd", "signin", "sign", "每日签到")]
+    [Command("签到", "每日签到领取金币", MessageScene.GroupAt, "qd", "signin", "sign", "每日签到")]
+    [Command("签到", "每日签到领取金币", MessageScene.Private, "qd", "signin", "sign", "每日签到")]
     public static async Task SignInAsync(CommandArgs args)
     {
         UserRecord? user = DataStore.FindUser(args.Message.AuthorId);
@@ -352,9 +352,9 @@ public static class WhitelistCommands
             $"- 金币余额：{user.Coins}");
     }
 
-    [Command("查询金币", "查看金币余额", MessageScene.Group)]
-    [Command("查询金币", "查看金币余额", MessageScene.GroupAt)]
-    [Command("查询金币", "查看金币余额", MessageScene.Private)]
+    [Command("查询金币", "查看金币余额", MessageScene.Group, "cxjb", "coins", "金币", "money")]
+    [Command("查询金币", "查看金币余额", MessageScene.GroupAt, "cxjb", "coins", "金币", "money")]
+    [Command("查询金币", "查看金币余额", MessageScene.Private, "cxjb", "coins", "金币", "money")]
     public static async Task CoinsAsync(CommandArgs args)
     {
         UserRecord? user = DataStore.FindUser(args.Message.AuthorId);
@@ -370,9 +370,9 @@ public static class WhitelistCommands
 
     // ── 管理员查询 ──────────────────────────────────────────────────────────────
 
-    [Command("查询玩家", "按名字查询白名单记录", MessageScene.Group)]
-    [Command("查询玩家", "按名字查询白名单记录", MessageScene.GroupAt)]
-    [Command("查询玩家", "按名字查询白名单记录", MessageScene.Private)]
+    [Command("查询玩家", "按名字查询白名单记录", MessageScene.Group, "cxwj", "findplayer")]
+    [Command("查询玩家", "按名字查询白名单记录", MessageScene.GroupAt, "cxwj", "findplayer")]
+    [Command("查询玩家", "按名字查询白名单记录", MessageScene.Private, "cxwj", "findplayer")]
     public static async Task FindPlayerAsync(CommandArgs args)
     {
         if (!await Permissions.RequireAdminAsync(args))
