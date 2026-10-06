@@ -330,6 +330,52 @@ public static class DataStore
         }
     }
 
+    /// <summary>取某个群的直接父群；未绑定或父群记录不存在时返回 null。</summary>
+    public static GroupRecord? FindParent(GroupRecord group)
+    {
+        if (string.IsNullOrEmpty(group.ParentGroupOpenId))
+        {
+            return null;
+        }
+
+        lock (SyncRoot)
+        {
+            return data.Groups.FirstOrDefault(item => item.GroupOpenId == group.ParentGroupOpenId);
+        }
+    }
+
+    /// <summary>找出所有把 <paramref name="parentOpenId"/> 认作父群的子群。</summary>
+    public static List<GroupRecord> GetChildGroups(string parentOpenId)
+    {
+        if (string.IsNullOrEmpty(parentOpenId))
+        {
+            return [];
+        }
+
+        lock (SyncRoot)
+        {
+            return data.Groups
+                .Where(item => item.ParentGroupOpenId == parentOpenId)
+                .OrderBy(item => item.GroupOpenId)
+                .ToList();
+        }
+    }
+
+    /// <summary>
+    /// 配置的「归属群」：子群绑定了父群时，配置一律沿用父群的 ——
+    /// 改设置、加黑名单都落在父群上，一次生效到它下面所有子群。
+    /// </summary>
+    public static GroupRecord GetConfigOwner(string groupOpenId)
+    {
+        GroupRecord? group = FindGroup(groupOpenId);
+        if (group is not null && FindParent(group) is { } parent)
+        {
+            return parent;
+        }
+
+        return GetOrCreateGroup(groupOpenId);
+    }
+
     public static UserRecord? FindUser(string openId)
     {
         lock (SyncRoot)

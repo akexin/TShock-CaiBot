@@ -184,6 +184,7 @@ public static class MergedCommands
         "- `父群 <绑定|解绑> <OpenID>`　父群联动\n" +
         "- `黑名单 <列表|添加|删除>`　本群黑名单\n" +
         "- `全局 <列表|封禁|解封>`　云黑（所有绑定服务器共享）\n" +
+        "- `子群`　查看绑定到本群的子群（父群视角）\n" +
         "- `权限`　向群主申请机器人权限\n\n" +
         "> 旧写法（`/管理列表`、`/全局封禁` 等）仍然可用。";
 
@@ -204,6 +205,9 @@ public static class MergedCommands
                 break;
             case "权限" or "perm":
                 await GroupCommands.RequestPermissionAsync(Forward(args, rest));
+                break;
+            case "子群" or "children":
+                await GroupCommands.ListChildGroupsAsync(Forward(args, rest));
                 break;
             case "管理" or "admin":
                 await GroupAdminAsync(args, rest);

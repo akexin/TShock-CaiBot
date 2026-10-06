@@ -34,9 +34,19 @@ public static class Permissions
         if (!string.IsNullOrEmpty(groupOpenId))
         {
             GroupRecord? group = DataStore.FindGroup(groupOpenId);
-            if (group is not null && group.Admins.Contains(openId))
+            if (group is not null)
             {
-                return true;
+                if (group.Admins.Contains(openId))
+                {
+                    return true;
+                }
+
+                // 父群的管理员在子群里也管事 —— 父群要能管理它名下的子群。
+                GroupRecord? parent = DataStore.FindParent(group);
+                if (parent is not null && parent.Admins.Contains(openId))
+                {
+                    return true;
+                }
             }
         }
 

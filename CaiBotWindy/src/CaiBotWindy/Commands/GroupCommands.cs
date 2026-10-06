@@ -202,7 +202,7 @@ public static class GroupCommands
             return;
         }
 
-        GroupRecord group = DataStore.GetOrCreateGroup(args.Message.GroupId ?? "");
+        GroupRecord group = DataStore.GetConfigOwner(args.Message.GroupId ?? "");
 
         if (!args.Require(2))
         {
@@ -258,7 +258,7 @@ public static class GroupCommands
     [Command("黑名单列表", "查看本群黑名单", MessageScene.GroupAt, "hmdlb", "blacklist", "黑名单")]
     public static async Task ListBlacklistAsync(CommandArgs args)
     {
-        GroupRecord group = DataStore.GetOrCreateGroup(args.Message.GroupId ?? "");
+        GroupRecord group = DataStore.GetConfigOwner(args.Message.GroupId ?? "");
         await CommandHelpers.ReplyAsync(args,
             "# 🍥 黑名单列表\n" +
             (group.Blacklist.Count == 0
@@ -282,7 +282,7 @@ public static class GroupCommands
         }
 
         string name = args.GetOrDefault(0).Trim();
-        GroupRecord group = DataStore.GetOrCreateGroup(args.Message.GroupId ?? "");
+        GroupRecord group = DataStore.GetConfigOwner(args.Message.GroupId ?? "");
         if (group.Blacklist.Any(item => string.Equals(item, name, StringComparison.OrdinalIgnoreCase)))
         {
             await CommandHelpers.ReplyAsync(args, "# ⚠️ 该角色已在黑名单中。");
@@ -310,7 +310,7 @@ public static class GroupCommands
         }
 
         string name = args.GetOrDefault(0).Trim();
-        GroupRecord group = DataStore.GetOrCreateGroup(args.Message.GroupId ?? "");
+        GroupRecord group = DataStore.GetConfigOwner(args.Message.GroupId ?? "");
 
         // 名字与 OpenID 都清一遍：进群/退群卡片上的按钮传的是 OpenID，
         // 而手输指令时填的多半是角色名，两种写法都要能解封。
@@ -510,6 +510,51 @@ public static class GroupCommands
         GroupMemberRole.Admin => "管理员",
         _ => "普通成员",
     };
+
+    // ── 子群（父群视角）────────────────────────────────────────────────────────
+
+    [Command("子群列表", "查看绑定到本群的所有子群", MessageScene.Group)]
+    [Command("子群列表", "查看绑定到本群的所有子群", MessageScene.GroupAt)]
+    public static async Task ListChildGroupsAsync(CommandArgs args)
+    {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
+        string groupOpenId = args.Message.GroupId ?? "";
+        List<GroupRecord> children = DataStore.GetChildGroups(groupOpenId);
+
+        if (children.Count == 0)
+        {
+            await CommandHelpers.ReplyAsync(args,
+                "# 👥 子群\n> 目前没有群绑定到本群。\n\n" +
+                "> 让子群的管理员在**那个群**里执行：\n" +
+                $"> `/绑定父群 {groupOpenId}`");
+            return;
+        }
+
+        StringBuilder builder = new();
+        builder.Append($"# 👥 子群（{children.Count}）\n");
+        builder.Append("> 子群沿用本群的**全部配置**（群设置、黑名单等）；\n" +
+                       "> 本群管理员在子群里也拥有管理权限，可直接下到子群操作。\n\n");
+
+        int index = 1;
+        foreach (GroupRecord child in children)
+        {
+            List<ServerRecord> servers = DataStore.GetServers(child.GroupOpenId);
+            builder.Append($"{index}. `{child.GroupOpenId}`\n");
+            builder.Append($"   - 绑定服务器：{servers.Count} 台　本群管理员：{child.Admins.Count} 人\n");
+            index++;
+        }
+
+        await CommandHelpers.ReplyAsync(args, builder.ToString(),
+            MenuKit.Keyboard(
+                ("群信息", "/获取群信息"),
+                ("黑名单列表", "/黑名单列表"),
+                ("群设置", "/设置"),
+                ("菜单", "/菜单")));
+    }
 
     /// <summary>OpenID 属于敏感信息，展示时只保留前后各 4 位。</summary>
     private static string Mask(string value)
