@@ -89,6 +89,8 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         // 存一份适配器引用：白名单校验跑在 HTTP/WebSocket 线程上，拿不到 CommandArgs，
         // 只能通过这里主动往群里推登录确认卡片。
         App.Adaptor = Adaptor;
+        App.Commands = Commands;
+        App.Hooks = Hooks;
 
         if (Adaptor is QQOfficialAdaptor qq)
         {
@@ -101,6 +103,9 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
 
         // 指令表里匹配不到时兜底回一句话，避免私聊 / 群 AT 出现「发了没反应」。
         Hooks.RegisterNoCommand(this, OnNoCommandAsync);
+
+        // 子群的活动回流到父群：父群要能掌握名下所有子群的动态。
+        Hooks.RegisterMessage(this, ForwardChildActivityAsync, priority: 10);
 
         Message.Green(
             $"[{Name}] v{Version} 已就绪。监听 {string.Join(", ", App.Config.ListenPrefixes)}，" +
@@ -349,6 +354,63 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
     /// <c>40103007 无效或已过期的审批令牌</c>；而按钮点击只回传固定指令文本，
     /// 拿不到事件里的 id，只能按 memberOpenId 反查。</para>
     /// </summary>
+    /// <summary>
+    /// 子群活动回流：子群里发生的消息（指令调用等）摘要转一份给父群。
+    ///
+    /// <para>放在消息钩子上而不是指令执行后：钩子在<b>分派之前</b>跑，
+    /// 无论这条消息最终命中哪条指令、甚至没命中，父群都能看到。</para>
+    /// </summary>
+    private static async Task ForwardChildActivityAsync(MessageEventArgs message)
+    {
+        if (!App.Config.ForwardChildActivity)
+        {
+            return;
+        }
+
+        if (message.Scene != MessageScene.Group || string.IsNullOrEmpty(message.GroupId))
+        {
+            return;
+        }
+
+        string content = message.Content?.Trim() ?? "";
+        if (content.Length == 0)
+        {
+            return;
+        }
+
+        // 只有「子群」才回流 —— 普通群、父群自身都不转。
+        GroupRecord? group = DataStore.FindGroup(message.GroupId);
+        if (group is null || string.IsNullOrEmpty(group.ParentGroupOpenId))
+        {
+            return;
+        }
+
+        Adaptor? adaptor = App.Adaptor;
+        if (adaptor is null)
+        {
+            return;
+        }
+
+        string who = string.IsNullOrEmpty(message.AuthorName) ? message.AuthorId : message.AuthorName;
+        string text = content.Length > 120 ? content[..120] + "…" : content;
+
+        try
+        {
+            await adaptor.SendMessage(
+                SendTarget.Group(group.ParentGroupOpenId),
+                new MessageContent().AddMarkdown(
+                    "# 📡 子群活动\n" +
+                    $"- 子群：`{message.GroupId}`\n" +
+                    $"- 成员：{who}\n" +
+                    $"- 内容：{text}\n\n" +
+                    "> 想原地代它执行：`/子群执行 <序号> <同一指令>`"));
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[子群转发] 回流失败: {ex.Message}");
+        }
+    }
+
     private static async Task NotifyJoinRequestAsync(QQOfficialGroupJoinRequestEventArgs args)
     {
         try

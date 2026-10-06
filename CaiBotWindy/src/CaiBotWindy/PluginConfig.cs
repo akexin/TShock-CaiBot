@@ -97,6 +97,12 @@ public sealed class PluginConfig
     /// <summary>自动处理入群申请后是否往群里发一条结果通知。默认关闭（只写控制台，不打扰管理员）。</summary>
     public bool GroupJoinNotify { get; set; }
 
+    /// <summary>
+    /// 子群的活动是否回流到父群。开启后，子群里的每次指令调用都会往父群发一条摘要，
+    /// 便于父群掌握名下所有子群的动态；群多时嫌吵可以关掉。
+    /// </summary>
+    public bool ForwardChildActivity { get; set; } = true;
+
     /// <summary>注册验证码的邮件发送配置。留空则注册功能自动降级为「不需要验证码」。</summary>
     public SmtpSettings Smtp { get; set; } = new();
 

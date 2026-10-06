@@ -22,6 +22,12 @@ public static class App
     /// </summary>
     public static Adaptor? Adaptor { get; set; }
 
+    /// <summary>指令注册表。用于「父群替子群执行指令」——需要主动构造消息上下文再分派。</summary>
+    public static Windy.SDK.Command.CommandRegistry Commands { get; set; } = null!;
+
+    /// <summary>消息钩子。用于注册全局监听（如把子群的指令活动转发到父群）。</summary>
+    public static Windy.SDK.Hooks.HookRegistry Hooks { get; set; } = null!;
+
     /// <summary>插件是否已完成初始化（HTTP 服务与图鉴数据就绪）。</summary>
     public static bool Ready { get; set; }
 
