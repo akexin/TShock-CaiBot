@@ -100,7 +100,7 @@ public static class DocCommands
                 await CommandHelpers.ReplyAsync(args,
                     "# 📘 使用文档已发送\n" +
                     "> 上面就是完整的指令说明，可以直接转发给群友。\n" +
-                    $"> 指令清单也可以随时用 {MenuKit.CmdInput("/所有指令")} 查看。");
+                    $"> 指令清单也可以随时用 {MenuKit.CmdInput("/菜单")} 查看。");
                 return;
             }
             catch (Exception ex)
@@ -112,11 +112,11 @@ public static class DocCommands
         await CommandHelpers.ReplyAsync(args, UsageDocument);
     }
 
-    // ── /所有指令 ──────────────────────────────────────────────────────────────
+    // ── /菜单 ──────────────────────────────────────────────────────────────
 
-    [Command("所有指令", "列出机器人的全部指令（分页）", MessageScene.Group, "syzl", "allcmd", "全部指令", "指令列表")]
-    [Command("所有指令", "列出机器人的全部指令（分页）", MessageScene.GroupAt, "syzl", "allcmd", "全部指令", "指令列表")]
-    [Command("所有指令", "列出机器人的全部指令（分页）", MessageScene.Private, "syzl", "allcmd", "全部指令", "指令列表")]
+    [Command("菜单", "功能菜单（分页）", MessageScene.Group, "所有指令", "syzl", "allcmd", "cd", "menu", "帮助", "帮助菜单", "指令列表", "全部指令")]
+    [Command("菜单", "功能菜单（分页）", MessageScene.GroupAt, "所有指令", "syzl", "allcmd", "cd", "menu", "帮助", "帮助菜单", "指令列表", "全部指令")]
+    [Command("菜单", "功能菜单（分页）", MessageScene.Private, "所有指令", "syzl", "allcmd", "cd", "menu", "帮助", "帮助菜单", "指令列表", "全部指令")]
     public static Task AllCommandsAsync(CommandArgs args)
     {
         // 第 1 页是目录（二级菜单，可点击），之后每页对应一个分类。
@@ -131,51 +131,56 @@ public static class DocCommands
         (string title, string[] lines) = CommandPages[page - 2];
 
         StringBuilder builder = new();
-        builder.Append($"# 🍥 全部指令（{page} / {total}）\n");
-        builder.Append("> 尖括号是**参数**，竖线是**可选子命令**。旧写法与合并写法都能用。\n\n");
-        builder.Append($"**{title}**\n");
+        builder.Append($"# 🍥 {title}（{page - 1} / {CommandPages.Length}）\n");
+        builder.Append("> `< >` 是参数，`|` 是可选子命令，后面附带的是别名。\n\n");
 
         foreach (string line in lines)
         {
             builder.Append(line).Append('\n');
         }
 
-        // 页码按钮：点数字直接跳页，两侧是上一页 / 下一页，另有回目录。
-        List<(string Label, string Command)> buttons = [("🏠 目录", "/所有指令 1")];
+        // 页码按钮：点数字直接跳页，两侧是上一页 / 下一页，另有回首页。
+        List<(string Label, string Command)> buttons = [("🏠 菜单", "/菜单")];
         if (page > 2)
         {
-            buttons.Add(("⬅", $"/所有指令 {page - 1}"));
+            buttons.Add(("⬅", $"/菜单 {page - 1}"));
         }
 
         for (int i = 1; i <= CommandPages.Length; i++)
         {
-            buttons.Add(($"{i}", $"/所有指令 {i + 1}"));
+            buttons.Add(($"{i}", $"/菜单 {i + 1}"));
         }
 
         if (page < total)
         {
-            buttons.Add(("➡", $"/所有指令 {page + 1}"));
+            buttons.Add(("➡", $"/菜单 {page + 1}"));
         }
 
         return CommandHelpers.ReplyAsync(args, builder.ToString(), MenuKit.Keyboard([.. buttons]));
     }
 
-    /// <summary>目录页：列出全部二级菜单。</summary>
+    /// <summary>菜单首页：开始使用 + 各分类入口（简约版）。</summary>
     private static string BuildIndexPage(int total)
     {
         StringBuilder builder = new();
-        builder.Append($"# 🍥 全部指令（1 / {total}）\n");
-        builder.Append("> 共 " + CommandPages.Length + " 个分类，点下面按钮或发 `/所有指令 <页码>` 查看。\n\n");
+        builder.Append("# 🍥 菜单\n");
+        builder.Append("> 泰拉瑞亚服务器管理机器人\n\n");
 
+        builder.Append("**开始使用**\n");
+        builder.Append("- `/添加服务器 <IP> <端口> <绑定码>` 绑定服务器\n");
+        builder.Append("- `/注册 <QQ邮箱> <角色名>` 邮箱注册\n");
+        builder.Append("- `/文档` 完整使用文档\n\n");
+
+        builder.Append("**功能分类**\n");
         for (int i = 0; i < CommandPages.Length; i++)
         {
-            builder.Append($"**{i + 2}.** {CommandPages[i].Title}　`{CommandPages[i].Lines.Length}` 条\n");
+            builder.Append($"{i + 2}. {CommandPages[i].Title}　`{CommandPages[i].Lines.Length}`\n");
         }
 
         return builder.ToString();
     }
 
-    /// <summary>目录页的按钮：分类短名 → 对应页码。</summary>
+    /// <summary>菜单首页的按钮：分类短名 → 对应页码。</summary>
     private static IEnumerable<(string Label, string Command)> IndexButtons()
     {
         for (int i = 0; i < CommandPages.Length; i++)
@@ -184,7 +189,7 @@ public static class DocCommands
             string title = CommandPages[i].Title;
             int space = title.IndexOf(' ');
             string shortName = space >= 0 ? title[(space + 1)..] : title;
-            yield return ($"{shortName}", $"/所有指令 {i + 2}");
+            yield return (shortName, $"/菜单 {i + 2}");
         }
 
         yield return ("使用文档", "/文档");
@@ -252,7 +257,7 @@ public static class DocCommands
         ("ℹ️ 其它", [
             "- `/帮助` `/菜单` 功能菜单",
             "- `/文档` 使用文档（群里以文件下发，可转发）",
-            "- `/所有指令 [页码]` 本清单",
+            "- `/菜单 [页码]` 本清单",
             "- `/关于` 作者与开源仓库　`gy` / `about`",
         ]),
     ];
@@ -300,7 +305,7 @@ public static class DocCommands
         | 签到领金币 | `/签到` `/查询金币` |
         | 注册相关 | `/注册` `/注册验证` `/我的注册` |
 
-        > 完整清单：`/所有指令`
+        > 完整清单：`/菜单`
 
         ## 三、进服被拦住了？
 
@@ -341,7 +346,7 @@ public static class DocCommands
         | `/服务器` | `/fwq` `/server` `/srv` |
         | `/群` | `/q` `/group` |
 
-        > 其余指令的别名见 `/所有指令`。每条指令都有 2~4 个等价写法。
+        > 其余指令的别名见 `/菜单`。每条指令都有 2~4 个等价写法。
 
         ### 多服务器：命令后面加数字
         群里绑了多台服务器时，序号跟在命令后面：

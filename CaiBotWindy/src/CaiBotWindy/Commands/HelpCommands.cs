@@ -36,24 +36,8 @@ public static class HelpCommands
         return $"\n**{title}**\n";
     }
 
-    [Command("菜单", "查看功能菜单", MessageScene.Group, "帮助", "cd", "menu", "帮助菜单")]
-    [Command("菜单", "查看功能菜单", MessageScene.GroupAt, "帮助", "cd", "menu", "帮助菜单")]
-    [Command("菜单", "查看功能菜单", MessageScene.Private, "帮助", "cd", "menu", "帮助菜单")]
-    public static Task MenuAsync(CommandArgs args)
-    {
-        return CommandHelpers.ReplyAsync(args,
-            "# 🍥 帮助\n> 泰拉瑞亚服务器管理机器人\n\n" +
-            Group("开始使用") +
-            Tag("/添加服务器 ", "`<IP>` `<端口>` `<绑定码>` 绑定服务器") + "\n" +
-            Tag("/注册 ", "`<QQ邮箱>` `<角色名>` 邮箱注册角色") + "\n" +
-            Tag("/绑定信息", "群 ↔ 机器人 ↔ 服务器 的绑定关系") + "\n" +
-            Tag("/文档", "使用文档（群里以文件下发，可转发）") + "\n" +
-            Tag("/所有指令", "全部指令清单") + "\n" +
-            Tag("/关于", "作者与开源仓库") +
-            "\n\n> 绑定码在**服务器控制台**查看：`[CaiBotLite] 您的服务器绑定码为: …`\n" +
-            "> 下面按钮可进入各功能菜单。",
-            MainMenu);
-    }
+    // `/菜单` 已并入 DocCommands —— 分页菜单：首页放分类入口，二级页放具体指令。
+    // 这里不再单独实现，避免两条指令抢同一个名字（重名会让注册表抛异常）。
 
     [Command("服务器管理", "服务器管理菜单", MessageScene.Group, "fwqgl", "servermanage")]
     [Command("服务器管理", "服务器管理菜单", MessageScene.GroupAt, "fwqgl", "servermanage")]

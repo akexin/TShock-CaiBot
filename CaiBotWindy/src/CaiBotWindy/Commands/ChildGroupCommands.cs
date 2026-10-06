@@ -99,7 +99,7 @@ public static class ChildGroupCommands
         if (!CommandExists(commandLine))
         {
             await CommandHelpers.ReplyAsync(args,
-                $"# ⛔ 未知指令\n> `{commandLine}` 不是有效指令，可用 `/所有指令` 查看清单。");
+                $"# ⛔ 未知指令\n> `{commandLine}` 不是有效指令，可用 `/菜单` 查看清单。");
             return;
         }
 
