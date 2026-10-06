@@ -78,11 +78,14 @@ public static class ChildGroupCommands
             return;
         }
 
+        // ⚠️ msg_id 必须用**父群那条原始消息**的 id：QQ 的被动消息要凭它回帖，
+        //    自己编一个会被平台判为「请求参数msg_id无效或越权」(40034024)。
+        //    上下文 GroupId 仍是子群，所以操作落在子群。
         MessageEventArgs relayed = new(
             adaptor,
             MessageScene.Group,
             commandLine,
-            messageId: $"relay-{Guid.NewGuid():N}",
+            messageId: args.Message.MessageId,
             authorId: args.Message.AuthorId,
             replyTarget: SendTarget.Group(parentOpenId),
             authorName: args.Message.AuthorName)
@@ -91,22 +94,43 @@ public static class ChildGroupCommands
             Role = args.Message.Role,
         };
 
-        bool handled;
+        // ExecuteAsync 在「指令不存在」和「指令执行中抛异常」两种情况下**都返回 false**，
+        // 所以要先独立判断指令是否存在，否则执行失败会被误报成「未知指令」。
+        if (!CommandExists(commandLine))
+        {
+            await CommandHelpers.ReplyAsync(args,
+                $"# ⛔ 未知指令\n> `{commandLine}` 不是有效指令，可用 `/所有指令` 查看清单。");
+            return;
+        }
+
         try
         {
-            handled = await App.Commands.ExecuteAsync(relayed, App.Hooks);
+            bool handled = await App.Commands.ExecuteAsync(relayed, App.Hooks);
+            if (!handled)
+            {
+                await CommandHelpers.ReplyAsync(args,
+                    $"# ⚠️ 执行未完成\n> `{commandLine}` 已分派但没能收尾，多半是回复消息时被平台拒绝。\n" +
+                    "> 可看机器人控制台日志确认。");
+            }
         }
         catch (Exception ex)
         {
             Message.Yellow($"[子群执行] {childOpenId} 执行 {commandLine} 失败: {ex.Message}");
             await CommandHelpers.ReplyAsync(args, "# ⛔ 执行失败\n> " + ex.Message);
-            return;
+        }
+    }
+
+    /// <summary>指令名（含别名）是否已注册。</summary>
+    private static bool CommandExists(string commandLine)
+    {
+        string name = commandLine.TrimStart('/').Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+        if (name.Length == 0 || App.Commands is null)
+        {
+            return false;
         }
 
-        if (!handled)
-        {
-            await CommandHelpers.ReplyAsync(args,
-                $"# ⛔ 未知指令\n> `{commandLine}` 不是有效指令，可用 `/所有指令` 查看清单。");
-        }
+        return App.Commands.All.Any(info =>
+            string.Equals(info.Name, name, StringComparison.OrdinalIgnoreCase) ||
+            info.Parameters.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase)));
     }
 }

@@ -159,6 +159,12 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
             return;
         }
 
+        // 未匹配时留痕：出问题能一眼看出是「场景不对」还是「名字写错」，
+        // 而不用靠猜（指令是按 适配器:场景:名字 三个维度索引的）。
+        Message.Yellow(
+            $"[未匹配] scene={args.Scene} group={(string.IsNullOrEmpty(args.GroupId) ? "-" : args.GroupId)} " +
+            $"role={args.Role} content={content}");
+
         bool looksLikeCommand = content[0] is '/' or '!' or '！' or '／';
         if (args.Scene == MessageScene.Private)
         {
