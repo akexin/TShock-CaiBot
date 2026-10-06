@@ -120,13 +120,14 @@ public static class DocCommands
     [Command("菜单", "功能菜单（分页）", MessageScene.Private, "所有指令", "syzl", "allcmd", "cd", "menu", "帮助", "帮助菜单", "指令列表", "全部指令")]
     public static Task AllCommandsAsync(CommandArgs args)
     {
-        // 第 1 页是首页（分类入口），之后每页对应一个二级菜单。
+        // 第 1 页是首页（只列分类名），之后每页对应一个二级菜单的内容。
         int total = CommandPages.Length + 1;
         int page = args.TryGetInt(0, out int parsed) ? Math.Clamp(parsed, 1, total) : 1;
 
+        // 不用按钮键盘：导航全靠正文里的蓝色文字链接，界面更干净。
         if (page == 1)
         {
-            return CommandHelpers.ReplyAsync(args, BuildIndexPage(), MenuKit.Keyboard([.. IndexButtons()]));
+            return CommandHelpers.ReplyAsync(args, BuildIndexPage());
         }
 
         (string title, MenuEntry[] items) = CommandPages[page - 2];
@@ -139,77 +140,42 @@ public static class DocCommands
             builder.Append(RenderEntry(entry));
         }
 
-        List<(string Label, string Command)> buttons = [("🏠 菜单", "/菜单")];
-        if (page > 2)
-        {
-            buttons.Add(("⬅", $"/菜单 {page - 1}"));
-        }
+        builder.Append($"\n> 返回 {Link("/菜单", "菜单")}");
 
-        for (int i = 1; i <= CommandPages.Length; i++)
-        {
-            buttons.Add(($"{i}", $"/菜单 {i + 1}"));
-        }
-
-        if (page < total)
-        {
-            buttons.Add(("➡", $"/菜单 {page + 1}"));
-        }
-
-        return CommandHelpers.ReplyAsync(args, builder.ToString(), MenuKit.Keyboard([.. buttons]));
+        return CommandHelpers.ReplyAsync(args, builder.ToString());
     }
 
-    /// <summary>首页：只放分类入口，保持清爽。</summary>
+    /// <summary>首页：只列出二级菜单的名称，点名称即进入。</summary>
     private static string BuildIndexPage()
     {
         StringBuilder builder = new();
-        builder.Append("# 🍥 菜单\n");
-        builder.Append("> 泰拉瑞亚服务器管理机器人\n\n");
+        builder.Append("# 🍥 菜单\n\n");
 
-        builder.Append("**开始使用**\n");
-        builder.Append($"◦ {Cmd("/添加服务器")}　绑定服务器\n");
-        builder.Append($"◦ {Cmd("/注册")}　邮箱注册角色\n");
-        builder.Append($"◦ {Cmd("/文档")}　完整使用文档\n\n");
-
-        builder.Append("**功能分类**\n");
         for (int i = 0; i < CommandPages.Length; i++)
         {
-            builder.Append($"◦ {CommandPages[i].Title}　`{CommandPages[i].Items.Length}`\n");
+            // 显示分类全名，点击把 `/菜单 N` 填进输入框。
+            builder.Append($"◦ {Link($"/菜单 {i + 2}", CommandPages[i].Title)}\n");
         }
 
         return builder.ToString();
     }
 
-    /// <summary>首页按钮：分类短名 → 对应页码。</summary>
-    private static IEnumerable<(string Label, string Command)> IndexButtons()
-    {
-        for (int i = 0; i < CommandPages.Length; i++)
-        {
-            // 标题形如「📊 在线与状态」，去掉图标当按钮文字（按钮有长度限制）。
-            string title = CommandPages[i].Title;
-            int space = title.IndexOf(' ');
-            yield return (space >= 0 ? title[(space + 1)..] : title, $"/菜单 {i + 2}");
-        }
-
-        yield return ("使用文档", "/文档");
-    }
-
     /// <summary>
-    /// 把指令名渲染成**蓝色可点击**文字。
+    /// 蓝色可点击文字：显示 <paramref name="label"/>，点击把 <paramref name="command"/> 填进输入框。
     ///
-    /// <para>⚠️ 这里必须用 <c>&lt;qqbot-cmd-input&gt;</c>（点击把指令填进输入框），
-    /// <b>不能用 <c>&lt;qqbot-cmd-enter&gt;</c></b> —— 后者虽然点击即执行，
-    /// 但<b>群消息不支持</b>，平台会直接拒收整条消息：
-    /// <c>40034106 群消息不支持qqbot-cmd-enter</c>。踩过一次。</para>
+    /// <para>⚠️ 必须用 <c>&lt;qqbot-cmd-input&gt;</c>，不能用 <c>&lt;qqbot-cmd-enter&gt;</c> ——
+    /// 后者虽然点击即执行，但<b>群消息不支持</b>，平台会整条拒收
+    /// （<c>40034106 群消息不支持qqbot-cmd-enter</c>）。踩过一次。</para>
     /// </summary>
-    private static string Cmd(string command)
+    private static string Link(string command, string? label = null)
     {
-        return QQOfficialLabel.CommandInput(command);
+        return QQOfficialLabel.CommandInput(command, label);
     }
 
     private static string RenderEntry(MenuEntry entry)
     {
         string alias = entry.Alias.Length > 0 ? $"　`{entry.Alias}`" : "";
-        return $"◦ {Cmd(entry.Command)}　{entry.Description}{alias}\n";
+        return $"◦ {Link(entry.Command)}　{entry.Description}{alias}\n";
     }
 
     /// <summary>菜单里的一条指令。</summary>
