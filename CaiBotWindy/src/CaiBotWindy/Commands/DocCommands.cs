@@ -119,11 +119,19 @@ public static class DocCommands
     [Command("所有指令", "列出机器人的全部指令（分页）", MessageScene.Private, "syzl", "allcmd", "全部指令", "指令列表")]
     public static Task AllCommandsAsync(CommandArgs args)
     {
-        int page = args.TryGetInt(0, out int parsed) ? Math.Clamp(parsed, 1, CommandPages.Length) : 1;
-        (string title, string[] lines) = CommandPages[page - 1];
+        // 第 1 页是目录（二级菜单，可点击），之后每页对应一个分类。
+        int total = CommandPages.Length + 1;
+        int page = args.TryGetInt(0, out int parsed) ? Math.Clamp(parsed, 1, total) : 1;
+
+        if (page == 1)
+        {
+            return CommandHelpers.ReplyAsync(args, BuildIndexPage(total), MenuKit.Keyboard([.. IndexButtons()]));
+        }
+
+        (string title, string[] lines) = CommandPages[page - 2];
 
         StringBuilder builder = new();
-        builder.Append($"# 🍥 全部指令（{page} / {CommandPages.Length}）\n");
+        builder.Append($"# 🍥 全部指令（{page} / {total}）\n");
         builder.Append("> 尖括号是**参数**，竖线是**可选子命令**。旧写法与合并写法都能用。\n\n");
         builder.Append($"**{title}**\n");
 
@@ -132,26 +140,54 @@ public static class DocCommands
             builder.Append(line).Append('\n');
         }
 
-        // 页码按钮：点数字直接跳页，两侧是上一页 / 下一页。
-        List<(string Label, string Command)> buttons = [];
-        if (page > 1)
+        // 页码按钮：点数字直接跳页，两侧是上一页 / 下一页，另有回目录。
+        List<(string Label, string Command)> buttons = [("🏠 目录", "/所有指令 1")];
+        if (page > 2)
         {
             buttons.Add(("⬅", $"/所有指令 {page - 1}"));
         }
 
         for (int i = 1; i <= CommandPages.Length; i++)
         {
-            buttons.Add(($"{i}", $"/所有指令 {i}"));
+            buttons.Add(($"{i}", $"/所有指令 {i + 1}"));
         }
 
-        if (page < CommandPages.Length)
+        if (page < total)
         {
             buttons.Add(("➡", $"/所有指令 {page + 1}"));
         }
 
-        buttons.Add(("使用文档", "/文档"));
-
         return CommandHelpers.ReplyAsync(args, builder.ToString(), MenuKit.Keyboard([.. buttons]));
+    }
+
+    /// <summary>目录页：列出全部二级菜单。</summary>
+    private static string BuildIndexPage(int total)
+    {
+        StringBuilder builder = new();
+        builder.Append($"# 🍥 全部指令（1 / {total}）\n");
+        builder.Append("> 共 " + CommandPages.Length + " 个分类，点下面按钮或发 `/所有指令 <页码>` 查看。\n\n");
+
+        for (int i = 0; i < CommandPages.Length; i++)
+        {
+            builder.Append($"**{i + 2}.** {CommandPages[i].Title}　`{CommandPages[i].Lines.Length}` 条\n");
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>目录页的按钮：分类短名 → 对应页码。</summary>
+    private static IEnumerable<(string Label, string Command)> IndexButtons()
+    {
+        for (int i = 0; i < CommandPages.Length; i++)
+        {
+            // 标题形如「📊 在线与状态」，去掉图标当按钮文字（按钮有长度限制）。
+            string title = CommandPages[i].Title;
+            int space = title.IndexOf(' ');
+            string shortName = space >= 0 ? title[(space + 1)..] : title;
+            yield return ($"{shortName}", $"/所有指令 {i + 2}");
+        }
+
+        yield return ("使用文档", "/文档");
     }
 
     /// <summary>
