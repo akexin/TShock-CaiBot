@@ -3,6 +3,7 @@ using CaiBotWindy.Data;
 using CaiBotWindy.Services;
 using Windy.SDK;
 using Windy.SDK.Adaptor;
+using Windy.SDK.Adaptor.QQOfficial;
 using Windy.SDK.Command;
 using Windy.SDK.Events;
 
@@ -119,27 +120,25 @@ public static class DocCommands
     [Command("菜单", "功能菜单（分页）", MessageScene.Private, "所有指令", "syzl", "allcmd", "cd", "menu", "帮助", "帮助菜单", "指令列表", "全部指令")]
     public static Task AllCommandsAsync(CommandArgs args)
     {
-        // 第 1 页是目录（二级菜单，可点击），之后每页对应一个分类。
+        // 第 1 页是首页（分类入口），之后每页对应一个二级菜单。
         int total = CommandPages.Length + 1;
         int page = args.TryGetInt(0, out int parsed) ? Math.Clamp(parsed, 1, total) : 1;
 
         if (page == 1)
         {
-            return CommandHelpers.ReplyAsync(args, BuildIndexPage(total), MenuKit.Keyboard([.. IndexButtons()]));
+            return CommandHelpers.ReplyAsync(args, BuildIndexPage(), MenuKit.Keyboard([.. IndexButtons()]));
         }
 
-        (string title, string[] lines) = CommandPages[page - 2];
+        (string title, MenuEntry[] items) = CommandPages[page - 2];
 
         StringBuilder builder = new();
-        builder.Append($"# 🍥 {title}（{page - 1} / {CommandPages.Length}）\n");
-        builder.Append("> `< >` 是参数，`|` 是可选子命令，后面附带的是别名。\n\n");
+        builder.Append($"# 🍥 {title}\n\n");
 
-        foreach (string line in lines)
+        foreach (MenuEntry entry in items)
         {
-            builder.Append(line).Append('\n');
+            builder.Append(RenderEntry(entry));
         }
 
-        // 页码按钮：点数字直接跳页，两侧是上一页 / 下一页，另有回首页。
         List<(string Label, string Command)> buttons = [("🏠 菜单", "/菜单")];
         if (page > 2)
         {
@@ -159,28 +158,28 @@ public static class DocCommands
         return CommandHelpers.ReplyAsync(args, builder.ToString(), MenuKit.Keyboard([.. buttons]));
     }
 
-    /// <summary>菜单首页：开始使用 + 各分类入口（简约版）。</summary>
-    private static string BuildIndexPage(int total)
+    /// <summary>首页：只放分类入口，保持清爽。</summary>
+    private static string BuildIndexPage()
     {
         StringBuilder builder = new();
         builder.Append("# 🍥 菜单\n");
         builder.Append("> 泰拉瑞亚服务器管理机器人\n\n");
 
         builder.Append("**开始使用**\n");
-        builder.Append("- `/添加服务器 <IP> <端口> <绑定码>` 绑定服务器\n");
-        builder.Append("- `/注册 <QQ邮箱> <角色名>` 邮箱注册\n");
-        builder.Append("- `/文档` 完整使用文档\n\n");
+        builder.Append($"◦ {Cmd("/添加服务器")}　绑定服务器\n");
+        builder.Append($"◦ {Cmd("/注册")}　邮箱注册角色\n");
+        builder.Append($"◦ {Cmd("/文档")}　完整使用文档\n\n");
 
         builder.Append("**功能分类**\n");
         for (int i = 0; i < CommandPages.Length; i++)
         {
-            builder.Append($"{i + 2}. {CommandPages[i].Title}　`{CommandPages[i].Lines.Length}`\n");
+            builder.Append($"◦ {CommandPages[i].Title}　`{CommandPages[i].Items.Length}`\n");
         }
 
         return builder.ToString();
     }
 
-    /// <summary>菜单首页的按钮：分类短名 → 对应页码。</summary>
+    /// <summary>首页按钮：分类短名 → 对应页码。</summary>
     private static IEnumerable<(string Label, string Command)> IndexButtons()
     {
         for (int i = 0; i < CommandPages.Length; i++)
@@ -188,77 +187,89 @@ public static class DocCommands
             // 标题形如「📊 在线与状态」，去掉图标当按钮文字（按钮有长度限制）。
             string title = CommandPages[i].Title;
             int space = title.IndexOf(' ');
-            string shortName = space >= 0 ? title[(space + 1)..] : title;
-            yield return (shortName, $"/菜单 {i + 2}");
+            yield return (space >= 0 ? title[(space + 1)..] : title, $"/菜单 {i + 2}");
         }
 
         yield return ("使用文档", "/文档");
     }
 
     /// <summary>
-    /// 指令清单按分类分页 —— 每页就是一个二级菜单，避免一次刷屏。
-    /// 合并指令用 <c>&lt;a|b&gt;</c> 表示子命令。
+    /// 把指令名渲染成**蓝色可点击**文字（点一下直接执行）。
+    /// 对应 QQ 的 <c>&lt;qqbot-cmd-enter&gt;</c> 标签 —— 比纯文本指令名好用得多。
     /// </summary>
-    private static readonly (string Title, string[] Lines)[] CommandPages =
+    private static string Cmd(string command)
+    {
+        return QQOfficialLabel.CommandEnter(command);
+    }
+
+    private static string RenderEntry(MenuEntry entry)
+    {
+        string alias = entry.Alias.Length > 0 ? $"　`{entry.Alias}`" : "";
+        return $"◦ {Cmd(entry.Command)}　{entry.Description}{alias}\n";
+    }
+
+    /// <summary>菜单里的一条指令。</summary>
+    private readonly record struct MenuEntry(string Command, string Description, string Alias = "");
+
+    /// <summary>菜单分页数据 —— 每页就是一个二级菜单。</summary>
+    private static readonly (string Title, MenuEntry[] Items)[] CommandPages =
     [
         ("📊 在线与状态", [
-            "- `/在线` 当前在线玩家　别名 `zx` / `online` / `谁在线`",
-            "- `/在线总览` 本群所有服务器的在线汇总　`zxzl`",
-            "- `/系统状态` 服务器延迟 + 本机 CPU / 内存 / 磁盘　`xtzt` / `status`",
-            "- `/进度查询` 世界 Boss 进度　`jdcx` / `progress`",
-            "- `/插件列表` 已装插件 / 模组　`cjlb` / `plugins`",
-            "- `/排行 <类型>` 服务器排行榜　`ph` / `rank`",
+            new("/在线", "当前在线玩家", "zx / online / 谁在线"),
+            new("/在线总览", "本群所有服务器的在线汇总", "zxzl"),
+            new("/系统状态", "延迟 + 本机 CPU / 内存 / 磁盘", "xtzt / status"),
+            new("/进度查询", "世界 Boss 进度", "jdcx / progress"),
+            new("/插件列表", "已装插件 / 模组", "cjlb / plugins"),
+            new("/排行", "服务器排行榜", "ph / rank"),
         ]),
         ("🎮 玩家数据", [
-            "- `/查背包 <玩家名>` 查询玩家背包　`cbb` / `bag`",
-            "- `/签到` 每日签到领金币　`qd` / `signin`",
-            "- `/查询金币` 金币余额　`cxjb` / `coins`",
-            "- `/si <名字|ID>` 搜物品　`sn` 搜生物　`sp` 搜弹幕",
-            "- `/sb` 搜增益　`/sx` 搜修饰语",
+            new("/查背包", "查询玩家背包（后面加玩家名）", "cbb / bag"),
+            new("/签到", "每日签到领金币", "qd / signin"),
+            new("/查询金币", "金币余额", "cxjb / coins"),
+            new("/si", "搜物品　（sn 生物 / sp 弹幕）"),
+            new("/sb", "搜增益　（sx 修饰语）"),
         ]),
         ("🖥 服务器", [
-            "- `/服务器 <列表|信息|添加|修改|删除|解绑>` 服务器管理",
-            "- `/地图 <预览|下载|小地图>` 地图相关",
-            "- `/自踢` 断开所有服务器连接　`zt` / `kick`",
-            "- `/绑定信息` 群 ↔ 机器人 ↔ 服务器 的绑定关系　`bdxx`",
+            new("/服务器", "服务器管理（列表 | 信息 | 添加 | 修改 | 删除 | 解绑）"),
+            new("/地图", "地图相关（预览 | 下载 | 小地图）"),
+            new("/自踢", "断开所有服务器连接", "zt / kick"),
+            new("/绑定信息", "群 ↔ 机器人 ↔ 服务器 的绑定关系", "bdxx"),
         ]),
         ("📄 注册与白名单", [
-            "- `/注册 <QQ邮箱> <角色名>` 邮箱注册（玩家自助）　`zc`",
-            "- `/注册验证 <验证码>` 完成邮箱验证　`zcyz`",
-            "- `/我的注册` 注册状态与注册基准　`wdzc`",
-            "- `/白名单 <添加|修改|删除|我的|查询>` 白名单管理",
-            "- `/登录 <验证码>` 批准新设备登录　`dl` / `login`",
-            "- `/登录 <确认|拒绝> <验证码>` 审批一条登录申请",
+            new("/注册", "邮箱注册（QQ邮箱 + 角色名）", "zc"),
+            new("/注册验证", "完成邮箱验证", "zcyz"),
+            new("/我的注册", "注册状态与注册基准", "wdzc"),
+            new("/白名单", "白名单管理（添加 | 修改 | 删除 | 我的）"),
+            new("/登录", "批准新设备登录 / 审批登录申请", "dl / login"),
         ]),
         ("👥 父群 / 子群", [
-            "- `/设置 父群` 父子群总入口",
-            "- `/设置 父群 列表` 查看名下子群",
-            "- `/设置 父群 绑定 <父群OpenID>` 挂到父群下",
-            "- `/设置 父群 执行 <序号> <指令>` 在父群替子群执行",
-            "- `/设置 父群 同步 <开|关>` 子群消息是否回流父群",
-            "- `/设置 父群 解绑` 解除父群绑定",
+            new("/设置 父群", "父子群总入口"),
+            new("/设置 父群 列表", "查看名下子群"),
+            new("/设置 父群 绑定", "挂到父群下（加父群 OpenID）"),
+            new("/设置 父群 执行", "在父群替子群执行（序号 + 指令）"),
+            new("/设置 父群 同步", "子群消息是否回流父群（开 | 关）"),
+            new("/设置 父群 解绑", "解除父群绑定"),
         ]),
-        ("🛡 群管理（需机器人是群管理员）", [
-            "- `/群 <信息|设置|管理|父群|黑名单|全局|权限>` 群管理总入口",
-            "- `/申请列表` 拉取入群申请　`sqlb`",
-            "- `/审批入群 <OpenID> <同意|拒绝>` 审批入群　`spjr`",
-            "- `/入群审核 <人工|自动|关闭>` 审核方式（默认人工）",
-            "- `/禁言状态` 群禁言状态　`/禁言 <OpenID> <分钟>` 设置禁言",
-            "- `/设置 <项> <开|关>` 群开关项（whitelist / progress / remote / kickgroup）",
+        ("🛡 群管理", [
+            new("/群", "群管理总入口（信息 | 设置 | 管理 | 黑名单）"),
+            new("/申请列表", "拉取入群申请", "sqlb"),
+            new("/审批入群", "审批入群（OpenID + 同意 | 拒绝）", "spjr"),
+            new("/入群审核", "审核方式（人工 | 自动 | 关闭）"),
+            new("/禁言状态", "群禁言状态（禁言 加 OpenID + 分钟）"),
+            new("/设置", "群开关项（whitelist | progress | remote | kickgroup）"),
         ]),
         ("⚙️ 管理与运维", [
-            "- `/物品监控 <add|del>` 背包物品超量告警　`wpjk`",
-            "- `/远程指令 <指令>` 在服务端执行指令　`yczl` / `rcon`",
-            "- `/日志 [页码]` TShock 服务端日志（分页）　`rz` / `log`",
-            "- `/日志搜索 <关键词>` 筛选日志内容　`rzss`",
-            "- `/注册限制 <数量>` 每 IP / 设备注册上限　`zcxz`",
-            "- `/菜单面板` 下发菜单与面板配置（管理员）",
+            new("/物品监控", "背包物品超量告警", "wpjk"),
+            new("/远程指令", "在服务端执行指令", "yczl / rcon"),
+            new("/日志", "TShock 服务端日志（分页）", "rz / log"),
+            new("/日志搜索", "筛选日志内容", "rzss"),
+            new("/注册限制", "每 IP / 设备注册上限", "zcxz"),
+            new("/菜单面板", "下发菜单与面板配置"),
         ]),
         ("ℹ️ 其它", [
-            "- `/帮助` `/菜单` 功能菜单",
-            "- `/文档` 使用文档（群里以文件下发，可转发）",
-            "- `/菜单 [页码]` 本清单",
-            "- `/关于` 作者与开源仓库　`gy` / `about`",
+            new("/菜单", "本菜单", "syzl / cd / menu"),
+            new("/文档", "使用文档（群里以文件下发）"),
+            new("/关于", "作者与开源仓库", "gy / about"),
         ]),
     ];
 
