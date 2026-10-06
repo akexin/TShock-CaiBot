@@ -1,6 +1,7 @@
 using CaiBotWindy.Data;
 using CaiBotWindy.Net;
 using CaiBotWindy.Protocol;
+using CaiBotWindy.Services;
 using Newtonsoft.Json.Linq;
 using Windy.SDK.Adaptor;
 using Windy.SDK.Adaptor.QQOfficial;
@@ -11,12 +12,18 @@ namespace CaiBotWindy.Commands;
 /// <summary>命令实现共用的小工具。</summary>
 internal static class CommandHelpers
 {
-    public static Task ReplyAsync(CommandArgs args, string markdown, ButtonKeyboard? keyboard = null)
+    /// <summary>
+    /// 统一的指令回复入口。
+    /// <para>默认按**结构化卡片**渲染（见 <see cref="MenuKit.ToCard"/>），
+    /// 传 <paramref name="card"/>=false 可退回原始 Markdown。</para>
+    /// </summary>
+    public static Task ReplyAsync(CommandArgs args, string markdown, ButtonKeyboard? keyboard = null, bool card = true)
     {
         // 回复顶部先 @ 一下发指令的人：QQ 会把它渲染成头像 + 昵称，
         // 群里指令一多就能一眼看出这条是回给谁的。
         string mention = BuildMention(args);
-        string body = string.IsNullOrEmpty(mention) ? markdown : $"{mention}\n{markdown}";
+        string bodyText = card ? MenuKit.ToCard(markdown) : markdown;
+        string body = string.IsNullOrEmpty(mention) ? bodyText : $"{mention}\n{bodyText}";
 
         MessageContent content = new MessageContent().AddMarkdown(body);
         if (keyboard is not null)

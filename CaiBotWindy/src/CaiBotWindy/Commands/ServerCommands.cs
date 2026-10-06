@@ -584,8 +584,9 @@ public static class ServerCommands
             return;
         }
 
-        await args.Adaptor.SendMessage(new Windy.SDK.Adaptor.MessageContent().AddText(
-            $"【{session.Record.ServerName}】世界地图（{image.Length / 1024} KB）"));
+        // 统一走 Markdown 卡片回复（原来是纯文本 AddText），和其余指令保持同一版式。
+        await CommandHelpers.ReplyAsync(args,
+            $"# 🗺 {session.Record.ServerName}\n> 世界地图已生成（{image.Length / 1024} KB）");
         await args.Adaptor.SendImage(image, "map.png");
     }
 

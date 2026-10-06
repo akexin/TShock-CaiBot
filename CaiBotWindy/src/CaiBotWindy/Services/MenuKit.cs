@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Text;
 using CaiBotWindy.Protocol;
 using Windy.SDK;
 using Windy.SDK.Adaptor;
@@ -83,6 +84,47 @@ public static class MenuKit
     public static string CmdInput(string fill, string? show = null)
     {
         return Windy.SDK.Adaptor.QQOfficial.QQOfficialLabel.CommandInput(fill, show ?? fill.TrimEnd());
+    }
+
+    /// <summary>
+    /// 把普通 Markdown 转成「结构化卡片」版式：把首行的一级标题提为卡片头，
+    /// 用水平分割线与正文隔开，结尾再收一条线。
+    ///
+    /// <para><b>为什么不用 QQ 的 Ark 卡片</b>：Ark（<c>ark.template_id</c>）是<b>固定模板</b>，
+    /// 字段写死（只有 23 链接列表 / 24 媒体卡 / 37 元信息卡几种），而且<b>被动消息发 ark
+    /// 需要达到数据标准后向平台运营申请权限</b>。我们的指令输出结构千变万化，套不进去。
+    /// 用 Markdown 拼出同级的信息层级：无需申请、字段自由、群里单聊都可用。</para>
+    /// </summary>
+    public static string ToCard(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return markdown;
+        }
+
+        string[] lines = markdown.Replace("\r\n", "\n").Split('\n');
+        int headIndex = Array.FindIndex(lines, line => line.StartsWith("# "));
+
+        // 没有一级标题就别动，免得把正文首行误当成标题。
+        if (headIndex < 0)
+        {
+            return markdown;
+        }
+
+        string title = lines[headIndex][2..].Trim();
+        string body = string.Join('\n', lines[(headIndex + 1)..]).Trim('\n');
+
+        StringBuilder builder = new();
+        builder.Append($"**{title}**\n");
+        builder.Append("---\n");
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            builder.Append(body).Append('\n');
+        }
+
+        builder.Append("---");
+        return builder.ToString();
     }
 
     /// <summary>图鉴检索结果过多时的候选列表。</summary>
