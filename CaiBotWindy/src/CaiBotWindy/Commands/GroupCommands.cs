@@ -202,18 +202,46 @@ public static class GroupCommands
             return;
         }
 
+        // `/设置 父群 …` 转交给父子群那一组 —— 让「设置」成为群相关配置的唯一入口。
+        string first = args.GetOrDefault(0).Trim().ToLowerInvariant();
+        if (first is "父群" or "child" or "children")
+        {
+            await ChildGroupSettingsAsync(args, [.. args.Parameters.Skip(1)]);
+            return;
+        }
+
         GroupRecord group = DataStore.GetConfigOwner(args.Message.GroupId ?? "");
+        string groupOpenId = args.Message.GroupId ?? "";
 
         if (!args.Require(2))
         {
+            GroupRecord? self = DataStore.FindGroup(groupOpenId);
+            string parent = string.IsNullOrEmpty(self?.ParentGroupOpenId)
+                ? "未绑定"
+                : $"`{self.ParentGroupOpenId}`";
+
             StringBuilder builder = new();
             builder.Append("# 🍥 群设置\n");
             builder.Append("> 用法：" + MenuKit.CmdInput("/设置 ", "设置 <项> <开|关>") + "\n\n");
+
+            builder.Append("**开关项**\n");
             builder.Append($"- `whitelist` 本群白名单：**{(group.EnableWhitelist ? "开" : "关")}**\n");
             builder.Append($"- `progress` 在线列表附带进度：**{(group.ShowProcessInPlayerList ? "开" : "关")}**\n");
             builder.Append($"- `remote` 允许远程指令：**{(group.AllowRemoteCommand ? "开" : "关")}**\n");
-            builder.Append($"- `kickgroup` 踢出提示附带群号：**{(group.ShowGroupNumberInKick ? "开" : "关")}**");
-            await CommandHelpers.ReplyAsync(args, builder.ToString());
+            builder.Append($"- `kickgroup` 踢出提示附带群号：**{(group.ShowGroupNumberInKick ? "开" : "关")}**\n");
+
+            builder.Append("\n**父群 / 子群**\n");
+            builder.Append($"- 本群父群：{parent}\n");
+            builder.Append($"- 名下子群：**{DataStore.GetChildGroups(groupOpenId).Count}** 个\n");
+            builder.Append($"- 子群消息回流：**{(App.Config.ForwardChildActivity ? "开" : "关")}**\n");
+            builder.Append("\n> 父子群的事都在 " + MenuKit.CmdInput("/设置 父群", "设置 父群 ...") + " 里");
+
+            await CommandHelpers.ReplyAsync(args, builder.ToString(),
+                MenuKit.Keyboard(
+                    ("父群设置", "/设置 父群"),
+                    ("子群列表", "/设置 父群 列表"),
+                    ("回流开关", "/设置 父群 同步"),
+                    ("菜单", "/菜单")));
             return;
         }
 
@@ -250,6 +278,54 @@ public static class GroupCommands
 
         DataStore.SaveServerChange();
         await CommandHelpers.ReplyAsync(args, $"# ✅ 设置已更新\n- `{key}` → **{(enabled ? "开" : "关")}**");
+    }
+
+    /// <summary>`/设置 父群 <子命令>` —— 绑定 / 解绑 / 列表 / 执行 / 同步，全部收在设置里。</summary>
+    private static async Task ChildGroupSettingsAsync(CommandArgs args, string[] rest)
+    {
+        string action = rest.Length > 0 ? rest[0].Trim().ToLowerInvariant() : "";
+        string[] inner = rest.Length > 1 ? rest[1..] : [];
+        CommandArgs forwarded = new(args.CommandName, inner, args.Message);
+
+        switch (action)
+        {
+            case "":
+            case "列表":
+            case "list":
+                await ListChildGroupsAsync(forwarded);
+                break;
+
+            case "绑定":
+            case "bind":
+                await BindParentAsync(forwarded);
+                break;
+
+            case "解绑":
+            case "unbind":
+                await UnbindParentAsync(forwarded);
+                break;
+
+            case "执行":
+            case "run":
+                await ChildGroupCommands.RunInChildAsync(forwarded);
+                break;
+
+            case "同步":
+            case "回流":
+            case "sync":
+                await ChildGroupCommands.SyncToggleAsync(forwarded);
+                break;
+
+            default:
+                await CommandHelpers.ReplyAsync(args,
+                    "# 🍥 父群 / 子群\n> 用法：`/设置 父群 <子命令>`\n" +
+                    "- `列表`　查看名下所有子群\n" +
+                    "- `绑定 <父群OpenID>`　把本群挂到某个父群下\n" +
+                    "- `解绑`　解除父群绑定\n" +
+                    "- `执行 <子群序号> <指令>`　在父群直接替子群执行\n" +
+                    "- `同步 <开|关>`　子群消息是否回流父群");
+                break;
+        }
     }
 
     // ── 黑名单 ──────────────────────────────────────────────────────────────────
