@@ -133,4 +133,54 @@ public static class ChildGroupCommands
             string.Equals(info.Name, name, StringComparison.OrdinalIgnoreCase) ||
             info.Parameters.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase)));
     }
+
+    // ── /子群同步 ──────────────────────────────────────────────────────────────
+
+    [Command("子群同步", "开关「子群消息回流到父群」", MessageScene.Group, "zqtb", "childsync")]
+    [Command("子群同步", "开关「子群消息回流到父群」", MessageScene.GroupAt, "zqtb", "childsync")]
+    public static async Task SyncToggleAsync(CommandArgs args)
+    {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
+        string sub = args.GetOrDefault(0).Trim().ToLowerInvariant();
+
+        if (sub.Length == 0)
+        {
+            bool on = App.Config.ForwardChildActivity;
+            await CommandHelpers.ReplyAsync(args,
+                "# 📡 子群同步\n" +
+                $"- 当前状态：**{(on ? "已开启" : "已关闭")}**\n\n" +
+                "> 开启后，子群里的消息会摘要转发到父群（📡 子群活动）。\n" +
+                "> 子群多、觉得吵就关掉；关掉后可随时再打开。\n" +
+                "> 点下面按钮直接切换：",
+                MenuKit.Keyboard(("🚫 关闭同步", "/子群同步 关"), ("✅ 开启同步", "/子群同步 开")));
+            return;
+        }
+
+        bool? target = sub switch
+        {
+            "开" or "开启" or "on" => true,
+            "关" or "关闭" or "off" => false,
+            _ => null,
+        };
+
+        if (target is null)
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 参数只能是「开」或「关」");
+            return;
+        }
+
+        App.Config.ForwardChildActivity = target.Value;
+        App.SaveConfig();
+
+        await CommandHelpers.ReplyAsync(args,
+            $"# {(target.Value ? "✅ 已开启" : "🚫 已关闭")}子群同步\n" +
+            (target.Value
+                ? "> 子群消息会摘要转发到父群。"
+                : "> 子群消息不再转发到父群（父群的 /子群执行 不受影响，仍然可用）。") +
+            "\n> 改动已写入配置文件，重启后依然有效。");
+    }
 }
