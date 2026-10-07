@@ -2,7 +2,7 @@
 
 - 作者: Cai
 - 仓库: 此仓库
-- 此插件为CaiBotLite适配插件
+- 此插件为 CaiBotLite 适配插件
 
 ## 使用指南
 
