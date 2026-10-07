@@ -299,9 +299,10 @@ public static class WhitelistService
         DataStore.SaveServerChange();
 
         // 这里跑在 WebSocket 回包线程上，绝不能同步等待 QQ 接口 —— 否则这次白名单校验会超时。
-        _ = Task.Run(async () =>
-        {
-            try
+        // 交给出站队列：立即返回，发送失败时的退避重试也由队列负责，
+        // 「主动消息配额限制」这类瞬时失败就能自动扛过去。
+        App.Outbox.Enqueue(
+            async _ =>
             {
                 Adaptor? adaptor = App.Adaptor;
                 if (adaptor is null)
@@ -316,12 +317,8 @@ public static class WhitelistService
                         .AddButton(MenuKit.Keyboard(
                             ("确认登录", $"/确认登录 {attempt.Code}"),
                             ("拒绝登录", $"/拒绝登录 {attempt.Code}"))));
-            }
-            catch (Exception ex)
-            {
-                Message.Yellow($"[登录确认] 推送确认消息失败（多半是主动消息配额限制）：{ex.Message}");
-            }
-        });
+            },
+            $"登录确认卡片（{attempt.PlayerName}）");
     }
 
     private static string BuildLoginRequest(LoginAttempt attempt)

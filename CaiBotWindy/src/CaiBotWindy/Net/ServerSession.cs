@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 using CaiBotWindy.Data;
+using CaiBotWindy.Infrastructure;
 using CaiBotWindy.Protocol;
 using Newtonsoft.Json.Linq;
 using Windy.SDK;
@@ -197,9 +199,10 @@ public sealed class ServerSession
         string groupOpenId = Record.GroupOpenId;
         string serverName = string.IsNullOrWhiteSpace(Record.ServerName) ? "服务器" : Record.ServerName;
 
-        _ = Task.Run(async () =>
-        {
-            try
+        // 事件广播最容易「一瞬间来一堆」（背包监控这类会连着刷好几条）。
+        // 走队列摊平：既不会把平台限频打满，也不会占住 WebSocket 读取线程。
+        App.Outbox.Enqueue(
+            async _ =>
             {
                 Adaptor? adaptor = App.Adaptor;
                 if (adaptor is null)
@@ -210,12 +213,8 @@ public sealed class ServerSession
                 await adaptor.SendMessage(
                     SendTarget.Group(groupOpenId),
                     new MessageContent().AddMarkdown($"# 📡 {serverName} · 事件\n{message}"));
-            }
-            catch (Exception ex)
-            {
-                Message.Yellow($"[ServerLog] 转发失败: {ex.Message}");
-            }
-        });
+            },
+            $"事件广播（{serverName}）");
     }
 
     private void HandleWhitelist(BotPacket packet)
@@ -298,6 +297,10 @@ public sealed class ServerSession
         TaskCompletionSource<BotPacket> waiter = new(TaskCreationOptions.RunContinuationsAsynchronously);
         pending[requestId] = waiter;
 
+        // 计时：跨机等待基本只发生在这一处，指令「变慢」绝大多数时候就是这里慢。
+        Stopwatch watch = Stopwatch.StartNew();
+        bool success = false;
+
         try
         {
             await SendAsync(BotPacket.Request(type, requestId, payload), cancellationToken);
@@ -307,7 +310,9 @@ public sealed class ServerSession
 
             try
             {
-                return await waiter.Task.WaitAsync(timeoutSource.Token);
+                BotPacket packet = await waiter.Task.WaitAsync(timeoutSource.Token);
+                success = true;
+                return packet;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
@@ -317,6 +322,13 @@ public sealed class ServerSession
         }
         finally
         {
+            watch.Stop();
+            PerfMonitor.Record(
+                type.ToWire(),
+                watch.Elapsed,
+                success,
+                string.IsNullOrEmpty(Record.ServerName) ? null : Record.ServerName);
+
             pending.TryRemove(requestId, out _);
         }
     }

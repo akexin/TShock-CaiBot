@@ -196,6 +196,10 @@ internal static class CaiBotApi
                         .Write("plugins", pluginList)
                         .Send();
                     break;
+                case PackageType.ServerFile:
+                    // 机器人点播服务端磁盘上的文件 / 目录 / 日志，回包由 ServerFileSupport 直接发送。
+                    ServerFileSupport.Handle(package, packetWriter);
+                    break;
                 case PackageType.RankData:
                     var rankType = package.Read<string>("rank_type");
                     var arg = package.Read<string>("arg");

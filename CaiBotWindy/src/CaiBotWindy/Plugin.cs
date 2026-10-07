@@ -36,11 +36,13 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
     public override void Initialize()
     {
         // ── 1. 配置与数据 ──────────────────────────────────────────────────────
-        string configPath = Path.Combine(WindyRuntime.BasicPath, "Config", "CaiBotWindy.json");
-        App.Config = JsonTool.Create<PluginConfig>(configPath)
-            .InitContent(new PluginConfig())
-            .Read()
-            .Content ?? new PluginConfig();
+        // 读配置自带「损坏回退到备份」；随后用环境变量覆盖敏感项（SMTP 授权码等），
+        // 这样部署时密码可以完全不落盘。
+        App.Config = App.LoadConfig();
+        App.Config.ApplyEnvironmentOverrides();
+
+        // 界面语言要在任何文案被取用之前定好；无法识别的代码会回退到简体中文。
+        Localization.L.Use(App.Config.Language);
 
         string storageDirectory = ResolvePath(App.Config.StorageDirectory);
         Directory.CreateDirectory(storageDirectory);
@@ -110,9 +112,26 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         Message.Green(
             $"[{Name}] v{Version} 已就绪。监听 {string.Join(", ", App.Config.ListenPrefixes)}，" +
             $"公网地址 {(string.IsNullOrEmpty(App.Config.PublicBaseUrl) ? "未配置（物品图标不可用）" : App.Config.PublicBaseUrl)}。");
+
+        // ── 4. 启动自检：指令清单 ───────────────────────────────────────────────
+        // 重名 / 签名写错曾经会让机器人直接起不来。现在这些问题不再阻断启动，
+        // 但必须在启动时看得见 —— 否则只会静默生效到有人发现「这条指令没反应」。
+        // 打印放在 OnCommandsRegistered 里：指令是加载器在 Initialize 返回后才扫描注册的，
+        // 写在这里只会打印出一张空表。
+
         Message.Yellow(
             $"[{Name}] 下一步：在 TShock 侧安装 CaiBotLite 适配插件，并把其 BotServerUrl 指向本机器人；" +
             "然后在群里发送「/添加服务器 <IP> <端口> <绑定码>」。");
+    }
+
+    /// <summary>加载器扫描完 <c>[Command]</c> 后回调 —— 此时注册表才是完整的。</summary>
+    public override void OnCommandsRegistered()
+    {
+        Message.Blue($"[{Name}] {Commands.BuildSummary()}");
+        if (Commands.Skipped.Count > 0)
+        {
+            Message.Yellow($"[{Name}] ⚠ 有 {Commands.Skipped.Count} 条指令被跳过（见上），功能会缺失，请尽快修复。");
+        }
     }
 
     private static string ResolvePath(string path)
@@ -123,9 +142,10 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
     /// <summary>服务端上报 hello 后通知群。</summary>
     private void OnServerOnline(ServerSession session)
     {
-        _ = Task.Run(async () =>
-        {
-            try
+        // 上线通知走消息队列：多台服务器同时恢复时会并发触发，
+        // 队列负责摊平节奏并在被限频时自动重试。
+        App.Outbox.Enqueue(
+            async _ =>
             {
                 await Adaptor.SendMessage(
                     SendTarget.Group(session.GroupOpenId),
@@ -139,12 +159,8 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
                         "👇 点下面的指令会直接填进输入框，补上参数点发送就能执行：\n" +
                         $"{MenuKit.CmdInput("/菜单")}　{MenuKit.CmdInput("/在线")}　{MenuKit.CmdInput("/进度查询")}　{MenuKit.CmdInput("/延迟")}\n" +
                         $"{MenuKit.CmdInput("/注册 ", "注册 <QQ邮箱> <角色名>")}　{MenuKit.CmdInput("/服务器列表")}　{MenuKit.CmdInput("/服务器信息")}"));
-            }
-            catch (Exception ex)
-            {
-                Message.Yellow($"[{Name}] 上线通知发送失败（可能受主动消息配额限制）: {ex.Message}");
-            }
-        });
+            },
+            $"上线通知（{session.Record.ServerName}）");
     }
 
     /// <summary>
@@ -366,55 +382,57 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
     /// <para>放在消息钩子上而不是指令执行后：钩子在<b>分派之前</b>跑，
     /// 无论这条消息最终命中哪条指令、甚至没命中，父群都能看到。</para>
     /// </summary>
-    private static async Task ForwardChildActivityAsync(MessageEventArgs message)
+    private static Task ForwardChildActivityAsync(MessageEventArgs message)
     {
         if (!App.Config.ForwardChildActivity)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         if (message.Scene != MessageScene.Group || string.IsNullOrEmpty(message.GroupId))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         string content = message.Content?.Trim() ?? "";
         if (content.Length == 0)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         // 只有「子群」才回流 —— 普通群、父群自身都不转。
         GroupRecord? group = DataStore.FindGroup(message.GroupId);
         if (group is null || string.IsNullOrEmpty(group.ParentGroupOpenId))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         Adaptor? adaptor = App.Adaptor;
         if (adaptor is null)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         string who = string.IsNullOrEmpty(message.AuthorName) ? message.AuthorId : message.AuthorName;
         string text = content.Length > 120 ? content[..120] + "…" : content;
+        string parentGroupOpenId = group.ParentGroupOpenId;
 
-        try
-        {
-            await adaptor.SendMessage(
-                SendTarget.Group(group.ParentGroupOpenId),
-                new MessageContent().AddMarkdown(
-                    "# 📡 子群活动\n" +
-                    $"- 子群：`{message.GroupId}`\n" +
-                    $"- 成员：{who}\n" +
-                    $"- 内容：{text}\n\n" +
-                    "> 想原地代它执行：`/子群执行 <序号> <同一指令>`"));
-        }
-        catch (Exception ex)
-        {
-            Message.Yellow($"[子群转发] 回流失败: {ex.Message}");
-        }
+        // 多个子群同时有人说话时会密集触发，交给队列摊平，避免撞限频。
+        App.Outbox.Enqueue(
+            async _ =>
+            {
+                await adaptor.SendMessage(
+                    SendTarget.Group(parentGroupOpenId),
+                    new MessageContent().AddMarkdown(
+                        "# 📡 子群活动\n" +
+                        $"- 子群：`{message.GroupId}`\n" +
+                        $"- 成员：{who}\n" +
+                        $"- 内容：{text}\n\n" +
+                        "> 想原地代它执行：`/子群执行 <序号> <同一指令>`"));
+            },
+            $"子群活动回流（{message.GroupId}）");
+
+        return Task.CompletedTask;
     }
 
     private static async Task NotifyJoinRequestAsync(QQOfficialGroupJoinRequestEventArgs args)
@@ -569,6 +587,10 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         }
 
         App.Ready = false;
+
+        // 先让队列把还没发出去的通知尽力发完（它会等待一小段时间），再落盘收工。
+        App.Outbox.Dispose();
+
         DataStore.Save();
         Message.Yellow($"[{Name}] 已卸载。");
     }

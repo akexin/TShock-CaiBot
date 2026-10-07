@@ -106,8 +106,30 @@ public sealed class PluginConfig
     /// <summary>注册验证码的邮件发送配置。留空则注册功能自动降级为「不需要验证码」。</summary>
     public SmtpSettings Smtp { get; set; } = new();
 
+    /// <summary>
+    /// 界面语言。写 <c>zh-CN</c>（默认）或 <c>en-US</c>，
+    /// 大小写与 <c>zh</c> / <c>en</c> 这类简写都能识别；无法识别时回退到简体中文。
+    /// </summary>
+    public string Language { get; set; } = "zh-CN";
+
     /// <summary>是否在控制台打印收到的每个数据包（排障用）。</summary>
     public bool Debug { get; set; }
+
+    /// <summary>
+    /// 用环境变量覆盖敏感配置项。
+    ///
+    /// <para><b>为什么需要它</b>：SMTP 授权码这类凭据写进配置文件，意味着它跟着
+    /// 备份文件、部署包、截图一起流转。改为从环境变量注入后，
+    /// 配置文件里可以完全不留密码。</para>
+    ///
+    /// <para>支持的环境变量：<c>CAIBOT_SMTP_PASSWORD</c>、<c>CAIBOT_SMTP_USER</c>、
+    /// <c>CAIBOT_SMTP_HOST</c>、<c>CAIBOT_SMTP_PORT</c>。
+    /// 只有显式设置了才覆盖，没设置就沿用文件里的值。</para>
+    /// </summary>
+    public void ApplyEnvironmentOverrides()
+    {
+        Smtp.ApplyEnvironmentOverrides();
+    }
 }
 
 /// <summary>
@@ -144,4 +166,62 @@ public sealed class SmtpSettings
                          !string.IsNullOrWhiteSpace(User) &&
                          !string.IsNullOrWhiteSpace(Password) &&
                          Port > 0;
+
+    // ── 环境变量注入（密码不落盘）──────────────────────────────────────────────
+
+    /// <summary>环境变量前缀。</summary>
+    private const string EnvPrefix = "CAIBOT_SMTP_";
+
+    /// <summary>密码是否来自环境变量。为真时保存配置不会把密码写回文件。</summary>
+    [JsonIgnore]
+    public bool PasswordFromEnvironment { get; private set; }
+
+    /// <summary>
+    /// 用环境变量覆盖本节的敏感字段。只有显式设置了对应环境变量才覆盖。
+    /// </summary>
+    public void ApplyEnvironmentOverrides()
+    {
+        if (TryGetEnvironment($"{EnvPrefix}HOST", out string? host) && !string.IsNullOrWhiteSpace(host))
+        {
+            Host = host.Trim();
+        }
+
+        if (TryGetEnvironment($"{EnvPrefix}USER", out string? user) && !string.IsNullOrWhiteSpace(user))
+        {
+            User = user.Trim();
+        }
+
+        if (TryGetEnvironment($"{EnvPrefix}PORT", out string? port) &&
+            int.TryParse(port, out int portValue) && portValue > 0)
+        {
+            Port = portValue;
+        }
+
+        if (TryGetEnvironment($"{EnvPrefix}PASSWORD", out string? password) && !string.IsNullOrWhiteSpace(password))
+        {
+            Password = password.Trim();
+            PasswordFromEnvironment = true;
+        }
+    }
+
+    /// <summary>
+    /// 密码来自环境变量时不写回文件 —— 这是「密码不落盘」的关键一环。
+    /// <para>Newtonsoft 的 <c>ShouldSerialize{Name}</c> 约定：返回 false 则该字段不参与序列化。</para>
+    /// </summary>
+    public bool ShouldSerializePassword() => !PasswordFromEnvironment;
+
+    /// <summary>脱敏后的密码摘要，仅用于日志与状态展示，绝不暴露真实内容。</summary>
+    [JsonIgnore]
+    public string PasswordDisplay =>
+        string.IsNullOrEmpty(Password)
+            ? "（未设置）"
+            : PasswordFromEnvironment
+                ? "***（来自环境变量，不落盘）"
+                : $"***（配置文件，{Password.Length} 位）";
+
+    private static bool TryGetEnvironment(string name, out string? value)
+    {
+        value = Environment.GetEnvironmentVariable(name);
+        return !string.IsNullOrEmpty(value);
+    }
 }

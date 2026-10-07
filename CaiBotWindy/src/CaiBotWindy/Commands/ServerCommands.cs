@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using CaiBotWindy.Data;
+using CaiBotWindy.Infrastructure;
 using CaiBotWindy.Net;
 using CaiBotWindy.Protocol;
 using CaiBotWindy.Services;
@@ -86,6 +87,13 @@ public static class ServerCommands
         int totalOnline = 0;
         int totalMax = 0;
 
+        // ── 并行查询：每台服务器各带一个独立超时 ────────────────────────────────
+        // 以前是 foreach 里串行 await：绑 5 台、每台都卡到超时的话，用户得等 5 个超时**累加**。
+        // 并行之后总耗时≈最慢的那台；单台超时只让它自己那条变灰，其余照常出结果。
+        // 外层超时比会话自身的超时多留 2 秒缓冲，避免两层超时互相打架。
+        TimeSpan perServerTimeout = TimeSpan.FromSeconds(App.Config.RequestTimeoutSeconds + 2);
+
+        List<(string Key, Func<CancellationToken, Task<JObject?>> Run)> queries = [];
         foreach (ServerRecord record in servers)
         {
             string name = string.IsNullOrWhiteSpace(record.ServerName)
@@ -94,38 +102,49 @@ public static class ServerCommands
 
             if (!App.Hub.TryResolve(groupOpenId, record.DisplayIndex, out ServerSession session, out _))
             {
-                views.Add(new OnlineServerView(name, false, 0, 0, []));
+                // 没连上的不必发请求；仍占一个位置，保证展示顺序与「服务器列表」一致。
+                queries.Add((name, _ => Task.FromResult<JObject?>(null)));
                 continue;
             }
 
-            try
-            {
-                BotPacket? packet = await session.RequestAsync(PackageType.PlayerList, new JObject(), CancellationToken.None);
-                if (packet is null)
-                {
-                    views.Add(new OnlineServerView(name, false, 0, 0, []));
-                    continue;
-                }
+            // 循环变量必须在这里固化，否则闭包捕获到的是同一个 session。
+            ServerSession captured = session;
+            queries.Add((name, cancellationToken => QueryPlayerListAsync(captured, cancellationToken)));
+        }
 
-                JObject payload = packet.Payload;
-                int current = payload.GetInt("current_online");
-                int max = payload.GetInt("max_online");
+        FanOutItem<JObject?>[] results = await FanOut.RunAsync(queries, perServerTimeout);
 
-                totalOnline += current;
-                totalMax += max;
-                views.Add(new OnlineServerView(name, true, current, max, payload.GetStringList("player_list")));
-            }
-            catch (Exception ex)
+        foreach (FanOutItem<JObject?> item in results)
+        {
+            if (!item.Success || item.Value is null)
             {
-                // 单台服务器超时不该让整张表作废 —— 标成离线继续查下一台。
-                Message.Yellow($"[在线总览] 服务器 {name} 查询失败: {ex.Message}");
-                views.Add(new OnlineServerView(name, false, 0, 0, []));
+                views.Add(new OnlineServerView(item.Key, false, 0, 0, []));
+                continue;
             }
+
+            JObject payload = item.Value;
+            int current = payload.GetInt("current_online");
+            int max = payload.GetInt("max_online");
+
+            totalOnline += current;
+            totalMax += max;
+            views.Add(new OnlineServerView(item.Key, true, current, max, payload.GetStringList("player_list")));
         }
 
         await CommandHelpers.ReplyAsync(args,
             MenuKit.RenderOnlineOverview(views, totalOnline, totalMax),
             MenuKit.Keyboard(("刷新", "/在线总览"), ("单服在线", "/在线"), ("服务器列表", "/服务器列表"), ("菜单", "/菜单")));
+    }
+
+    /// <summary>
+    /// 取单台服务器的在线玩家列表。
+    /// <para>异常不在这里处理 —— 交给 <see cref="FanOut"/> 统一转成失败项，
+    /// 这样「哪台超时、哪台报错」的归口只有一处。</para>
+    /// </summary>
+    private static async Task<JObject?> QueryPlayerListAsync(ServerSession session, CancellationToken cancellationToken)
+    {
+        BotPacket? packet = await session.RequestAsync(PackageType.PlayerList, new JObject(), cancellationToken);
+        return packet?.Payload;
     }
 
     // ── 系统状态（服务器 + 本机）──────────────────────────────────────────────

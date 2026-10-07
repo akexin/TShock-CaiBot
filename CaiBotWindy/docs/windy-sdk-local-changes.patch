@@ -1,0 +1,631 @@
+diff --git a/Windy.SDK/Adaptor/Adaptor.cs b/Windy.SDK/Adaptor/Adaptor.cs
+index 04cd7b9..d7b4905 100644
+--- a/Windy.SDK/Adaptor/Adaptor.cs
++++ b/Windy.SDK/Adaptor/Adaptor.cs
+@@ -45,11 +45,11 @@ namespace Windy.SDK.Adaptor
+         }
+ 
+         /// <summary>
+-        /// 插件处理群 AT 消息未匹配任何指令时的事件。
++        /// 插件处理「没有匹配到任何指令」的消息时的事件（群、群 AT、私聊均会触发）。
+         /// </summary>
+-        public event Func<MessageEventArgs, Task> OnGroupAtNoCommand
++        public event Func<MessageEventArgs, Task> OnNoCommand
+         {
+-            add => CurrentPlugin.AddGroupAtNoCommandHandler(value);
++            add => CurrentPlugin.AddNoCommandHandler(value);
+             remove { }
+         }
+ 
+diff --git a/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.cs b/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.cs
+index fe3cdb5..23233ff 100644
+--- a/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.cs
++++ b/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.cs
+@@ -467,13 +467,26 @@ namespace Windy.SDK.Adaptor.QQOfficial
+             accessToken = JObject.Parse(responseText).Value<string>("access_token") ?? "";
+         }
+ 
+-        private async Task<JObject> PostJsonAsync(string route, JObject payload, CancellationToken cancellationToken)
++        private Task<JObject> PostJsonAsync(string route, JObject payload, CancellationToken cancellationToken)
++        {
++            return RequestJsonAsync(HttpMethod.Post, route, payload, cancellationToken);
++        }
++
++        /// <summary>
++        /// 通用 JSON 请求。原先只有 POST 一个入口，群管理的查询类接口（入群申请列表、
++        /// 禁言状态、审批策略列表）都是 GET，所以抽出这个共用实现。
++        /// </summary>
++        private async Task<JObject> RequestJsonAsync(HttpMethod method, string route, JObject? payload, CancellationToken cancellationToken)
+         {
+             await RefreshAccessTokenAsync(cancellationToken);
+-            using HttpRequestMessage request = new(HttpMethod.Post, ApiBase + route);
++            using HttpRequestMessage request = new(method, ApiBase + route);
+             request.Headers.Authorization = new AuthenticationHeaderValue("QQBot", accessToken);
+             request.Headers.Add("X-Union-Appid", AppId);
+-            request.Content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json");
++            if (payload is not null)
++            {
++                request.Content = new StringContent(payload.ToString(Formatting.None), Encoding.UTF8, "application/json");
++            }
++
+             using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
+             string responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+             if (!response.IsSuccessStatusCode)
+@@ -481,11 +494,84 @@ namespace Windy.SDK.Adaptor.QQOfficial
+                 throw new InvalidOperationException($"QQ官方 API 请求失败: {(int)response.StatusCode} {responseText}");
+             }
+ 
+-            //Message.Blue($"QQ官方 API 响应: {responseText}");
+-            //返回主动消息失败的话应该是在这里,后续可以处理一下 TODO
+             return string.IsNullOrWhiteSpace(responseText) ? new JObject() : JObject.Parse(responseText);
+         }
+ 
++        // ── 入群申请 ────────────────────────────────────────────────────────────
++
++        /// <summary>拉取入群申请列表（分页，limit 上限 100）。返回原始 JSON，含 <c>list</c> 与 <c>next_cursor</c>。</summary>
++        public Task<JObject> GetGroupJoinRequestListAsync(string groupOpenId, string? cursor = null, int limit = 20, CancellationToken cancellationToken = default)
++        {
++            ValidateOpenId(groupOpenId, nameof(groupOpenId));
++            string route = $"/v2/groups/{Uri.EscapeDataString(groupOpenId)}/join_request_list?limit={Math.Clamp(limit, 1, 100)}";
++            if (!string.IsNullOrWhiteSpace(cursor))
++            {
++                route += $"&cursor={Uri.EscapeDataString(cursor)}";
++            }
++
++            return RequestJsonAsync(HttpMethod.Get, route, null, cancellationToken);
++        }
++
++        // ── 群禁言 ──────────────────────────────────────────────────────────────
++
++        /// <summary>查询群禁言状态：全员禁言规则 + 当前处于禁言中的成员列表。</summary>
++        public Task<JObject> GetGroupMuteSettingAsync(string groupOpenId, CancellationToken cancellationToken = default)
++        {
++            ValidateOpenId(groupOpenId, nameof(groupOpenId));
++            return RequestJsonAsync(HttpMethod.Get, $"/v2/groups/{Uri.EscapeDataString(groupOpenId)}/restrict_chat_setting", null, cancellationToken);
++        }
++
++        // ── 入群自动审批策略 ────────────────────────────────────────────────────
++
++        public Task<JObject> GetJoinApprovalStrategiesAsync(CancellationToken cancellationToken = default)
++        {
++            return RequestJsonAsync(HttpMethod.Get, "/v2/groups/join_approval_strategy", null, cancellationToken);
++        }
++
++        public Task<JObject> CreateJoinApprovalStrategyAsync(JObject payload, CancellationToken cancellationToken = default)
++        {
++            return RequestJsonAsync(HttpMethod.Post, "/v2/groups/join_approval_strategy", payload, cancellationToken);
++        }
++
++        public Task<JObject> UpdateJoinApprovalStrategyAsync(string strategyId, JObject payload, CancellationToken cancellationToken = default)
++        {
++            return RequestJsonAsync(HttpMethod.Patch, $"/v2/groups/join_approval_strategy/{Uri.EscapeDataString(strategyId)}", payload, cancellationToken);
++        }
++
++        public Task<JObject> DeleteJoinApprovalStrategyAsync(string strategyId, CancellationToken cancellationToken = default)
++        {
++            return RequestJsonAsync(HttpMethod.Delete, $"/v2/groups/join_approval_strategy/{Uri.EscapeDataString(strategyId)}", null, cancellationToken);
++        }
++
++        public Task<JObject> ExecuteJoinApprovalStrategyAsync(string strategyId, CancellationToken cancellationToken = default)
++        {
++            return RequestJsonAsync(HttpMethod.Post, $"/v2/groups/join_approval_strategy/{Uri.EscapeDataString(strategyId)}/execute", null, cancellationToken);
++        }
++
++        // ── 群成员 ──────────────────────────────────────────────────────────────
++
++        /// <summary>获取群成员详情（含禁言到期时间）。</summary>
++        public Task<JObject> GetGroupMemberAsync(string groupOpenId, string memberOpenId, CancellationToken cancellationToken = default)
++        {
++            ValidateOpenId(groupOpenId, nameof(groupOpenId));
++            ValidateOpenId(memberOpenId, nameof(memberOpenId));
++            string route = $"/v2/groups/{Uri.EscapeDataString(groupOpenId)}/members/{Uri.EscapeDataString(memberOpenId)}";
++            return RequestJsonAsync(HttpMethod.Get, route, null, cancellationToken);
++        }
++
++        /// <summary>获取群成员列表（分页）。</summary>
++        public Task<JObject> GetGroupMembersAsync(string groupOpenId, string? cursor = null, int limit = 20, CancellationToken cancellationToken = default)
++        {
++            ValidateOpenId(groupOpenId, nameof(groupOpenId));
++            string route = $"/v2/groups/{Uri.EscapeDataString(groupOpenId)}/members?limit={Math.Clamp(limit, 1, 100)}";
++            if (!string.IsNullOrWhiteSpace(cursor))
++            {
++                route += $"&cursor={Uri.EscapeDataString(cursor)}";
++            }
++
++            return RequestJsonAsync(HttpMethod.Get, route, null, cancellationToken);
++        }
++
+         private async Task SendIdentifyAsync(CancellationToken cancellationToken)
+         {
+             JObject identify = new()
+diff --git a/Windy.SDK/Command/CommandDispatchResult.cs b/Windy.SDK/Command/CommandDispatchResult.cs
+new file mode 100644
+index 0000000..29c62d0
+--- /dev/null
++++ b/Windy.SDK/Command/CommandDispatchResult.cs
+@@ -0,0 +1,65 @@
++namespace Windy.SDK.Command
++{
++    /// <summary>指令分派的状态。</summary>
++    public enum DispatchStatus
++    {
++        /// <summary>指令表里没有匹配项 —— 用户可能打错了名字，或该指令不支持当前场景。</summary>
++        NotFound,
++
++        /// <summary>已成功处理：指令正常执行完毕，或被前置钩子接管。</summary>
++        Handled,
++
++        /// <summary>
++        /// 指令**匹配到了**，但执行过程中抛了异常。
++        ///
++        /// <para>这一态必须和 <see cref="NotFound"/> 区分开：两者的用户提示完全不同。
++        /// 「没有这条指令」是用户的问题（打错字），「执行失败」是系统的问题（要查日志）。
++        /// 混为一谈会让人在系统出错时收到「不知道你想做什么」，既误导又没法排查。</para>
++        /// </summary>
++        Failed,
++    }
++
++    /// <summary>
++    /// 一次指令分派的结果。除了状态，还带上出问题的指令名与错误信息，
++    /// 好让上层直接给用户一句有用的回复，而不必去翻日志。
++    /// </summary>
++    public sealed class CommandDispatchResult
++    {
++        private CommandDispatchResult(DispatchStatus status, string? commandName, string? errorMessage)
++        {
++            Status = status;
++            CommandName = commandName;
++            ErrorMessage = errorMessage;
++        }
++
++        public DispatchStatus Status { get; }
++
++        /// <summary>命中的指令名。<see cref="NotFound"/> 时为 null。</summary>
++        public string? CommandName { get; }
++
++        /// <summary>失败原因。<see cref="DispatchStatus.Failed"/> 时才有值。</summary>
++        public string? ErrorMessage { get; }
++
++        public bool IsHandled => Status == DispatchStatus.Handled;
++
++        public bool IsNotFound => Status == DispatchStatus.NotFound;
++
++        public bool IsFailed => Status == DispatchStatus.Failed;
++
++        /// <summary>未匹配到任何指令。</summary>
++        public static readonly CommandDispatchResult NotFound = new(DispatchStatus.NotFound, null, null);
++
++        /// <summary>成功处理。</summary>
++        public static CommandDispatchResult Handled(string? commandName = null) =>
++            new(DispatchStatus.Handled, commandName, null);
++
++        /// <summary>匹配到了但执行失败。</summary>
++        public static CommandDispatchResult Failed(string commandName, string errorMessage) =>
++            new(DispatchStatus.Failed, commandName, errorMessage);
++
++        public override string ToString() =>
++            Status == DispatchStatus.Failed
++                ? $"Failed({CommandName}): {ErrorMessage}"
++                : Status.ToString();
++    }
++}
+diff --git a/Windy.SDK/Command/CommandRegistry.cs b/Windy.SDK/Command/CommandRegistry.cs
+index 2dd2085..49e1769 100644
+--- a/Windy.SDK/Command/CommandRegistry.cs
++++ b/Windy.SDK/Command/CommandRegistry.cs
+@@ -12,6 +12,38 @@ namespace Windy.SDK.Command
+ 
+         public IReadOnlyCollection<CommandInfo> All => commands.Values;
+ 
++        /// <summary>
++        /// 生成「有效指令清单」，供启动时打印核对。
++        ///
++        /// <para>把注册成功的指令按场景分组列出来，顺带列出被跳过的原因。
++        /// 重名、签名写错这类问题<b>只有在启动时看得见才修得掉</b>，
++        /// 否则会一直静默生效到有人发现「这条指令怎么没反应」。</para>
++        /// </summary>
++        public string BuildSummary()
++        {
++            StringBuilder report = new();
++            report.AppendLine($"已注册指令 {commands.Count} 条：");
++
++            foreach (IGrouping<MessageScene, CommandInfo> group in commands.Values
++                         .OrderBy(item => item.Scene)
++                         .GroupBy(item => item.Scene))
++            {
++                IEnumerable<string> names = group.Select(item => item.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
++                report.AppendLine($"  [{group.Key}] {string.Join("、", names)}");
++            }
++
++            if (skipped.Count > 0)
++            {
++                report.AppendLine($"⚠ 被跳过 {skipped.Count} 条：");
++                foreach (string reason in skipped)
++                {
++                    report.AppendLine($"  - {reason}");
++                }
++            }
++
++            return report.ToString().TrimEnd();
++        }
++
+         public void RegisterFromPlugin(WindyPlugin plugin)
+         {
+             const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+@@ -21,8 +53,21 @@ namespace Windy.SDK.Command
+                 {
+                     foreach (CommandAttribute attribute in method.GetCustomAttributes<CommandAttribute>())
+                     {
+-                        object? target = method.IsStatic ? null : Activator.CreateInstance(type)
+-                            ?? throw new InvalidOperationException($"无法创建指令 '{type.FullName}'.");
++                        object? target = null;
++                        if (!method.IsStatic)
++                        {
++                            try
++                            {
++                                target = Activator.CreateInstance(type);
++                            }
++                            catch (Exception ex)
++                            {
++                                // 实例化失败同样只影响这一条指令。
++                                Skip($"指令 '{attribute.Name}' 所在类型 {type.Name} 无法实例化，已跳过：{ex.Message}");
++                                continue;
++                            }
++                        }
++
+                         Register(attribute, method, target, plugin);
+                     }
+                 }
+@@ -34,12 +79,31 @@ namespace Windy.SDK.Command
+             return ExecuteAsync(message, null, cancellationToken);
+         }
+ 
++        /// <summary>
++        /// 兼容旧签名：只回答「有没有处理掉」。
++        ///
++        /// <para><b>注意</b>：这里把「没找到指令」和「找到了但执行报错」都压成 false。
++        /// 需要区分这两种情况的调用方（比如要给不同提示语的上层）请改用 <see cref="DispatchAsync"/>。</para>
++        /// </summary>
+         public async Task<bool> ExecuteAsync(MessageEventArgs message, HookRegistry? hooks, CancellationToken cancellationToken = default)
++        {
++            CommandDispatchResult result = await DispatchAsync(message, hooks, cancellationToken);
++            return result.IsHandled;
++        }
++
++        /// <summary>
++        /// 把一条消息分派给对应指令，并明确区分三种结局。
++        ///
++        /// <para><b>为什么要有它</b>：以前执行异常也返回 false，和「指令表里没有」完全无法区分。
++        /// 结果就是指令内部出错时，用户收到的是「不知道你想做什么喵~」——
++        /// 既掩盖了真实故障，又让人以为是自己打错了字。</para>
++        /// </summary>
++        public async Task<CommandDispatchResult> DispatchAsync(MessageEventArgs message, HookRegistry? hooks, CancellationToken cancellationToken = default)
+         {
+             string[] args = ParseCommandLine(message.Content.Trim());
+             if (args.Length == 0)
+             {
+-                return false;
++                return CommandDispatchResult.NotFound;
+             }
+ 
+             string commandName = args[0].TrimStart('/', '!', '！');
+@@ -53,7 +117,7 @@ namespace Windy.SDK.Command
+                     c.Scene == scene &&
+                     c.Parameters.Any(p => string.Equals(p, commandName, StringComparison.OrdinalIgnoreCase)));
+                 if (command == null)
+-                    return false;
++                    return CommandDispatchResult.NotFound;
+             }
+ 
+             try
+@@ -64,7 +128,7 @@ namespace Windy.SDK.Command
+                     await hooks.ExecuteProHandleAsync(commandArgs, cancellationToken);
+                     if (commandArgs.Handled)
+                     {
+-                        return true;
++                        return CommandDispatchResult.Handled(command.Name);
+                     }
+                 }
+ 
+@@ -74,17 +138,17 @@ namespace Windy.SDK.Command
+                     await task.WaitAsync(cancellationToken);
+                 }
+ 
+-                return true;
++                return CommandDispatchResult.Handled(command.Name);
+             }
+             catch (TargetInvocationException ex) when (ex.InnerException != null)
+             {
+                 Message.Red($"指令 {command.Name} 执行失败: {ex.InnerException.Message}");
+-                return false;
++                return CommandDispatchResult.Failed(command.Name, ex.InnerException.Message);
+             }
+             catch (Exception ex)
+             {
+                 Message.Red($"指令 {command.Name} 执行失败: {ex.Message}");
+-                return false;
++                return CommandDispatchResult.Failed(command.Name, ex.Message);
+             }
+         }
+ 
+@@ -115,18 +179,50 @@ namespace Windy.SDK.Command
+             return args.ToArray();
+         }
+ 
++        /// <summary>
++        /// 注册时被跳过的指令及原因（重名、方法签名不合法等）。
++        ///
++        /// <para><b>为什么不再抛异常</b>：以前重名会直接 throw，异常一路冒泡到插件加载处，
++        /// 结果是<b>机器人整个起不来</b> —— 而代价仅仅是两个指令撞了名字。
++        /// 一个手滑不该让线上服务全挂。现在改为跳过问题指令、其余照常注册，
++        /// 并在启动时把这份清单打出来，问题照样看得见，但不影响服务。</para>
++        /// </summary>
++        public IReadOnlyList<string> Skipped => skipped;
++
++        private readonly List<string> skipped = new();
++
+         private void Register(CommandAttribute attribute, MethodInfo method, object? target, WindyPlugin plugin)
+         {
+-            ValidateMethod(method);
+             string key = GetKey(plugin.RequiredAdaptor, attribute.Scene, attribute.Name);
++
+             if (commands.ContainsKey(key))
+             {
+-                throw new InvalidOperationException($"指令 '{attribute.Name}' 已经在适配器 '{plugin.RequiredAdaptor}' 注册过了.");
++                Skip($"指令 '{attribute.Name}'（场景 {attribute.Scene}）重复注册 —— 保留先注册的那条，跳过 {Describe(method)}");
++                return;
++            }
++
++            // 方法签名不合法同样只跳过这一条，不让整个插件加载失败。
++            try
++            {
++                ValidateMethod(method);
++            }
++            catch (Exception ex)
++            {
++                Skip($"指令 '{attribute.Name}' 的方法签名不合法，跳过 {Describe(method)}：{ex.Message}");
++                return;
+             }
+ 
+             commands.Add(key, new CommandInfo(attribute, method, target, plugin));
+         }
+ 
++        private void Skip(string reason)
++        {
++            skipped.Add(reason);
++            Message.Yellow($"[指令注册] {reason}");
++        }
++
++        private static string Describe(MethodInfo method) => $"{method.DeclaringType?.Name}.{method.Name}";
++
+         private static string GetKey(Adaptor.AdaptorType adaptorType, MessageScene scene, string commandName)
+         {
+             return $"{adaptorType}:{scene}:{commandName}";
+diff --git a/Windy.SDK/Hooks/HookRegistry.cs b/Windy.SDK/Hooks/HookRegistry.cs
+index 6e4cf8c..a58ca13 100644
+--- a/Windy.SDK/Hooks/HookRegistry.cs
++++ b/Windy.SDK/Hooks/HookRegistry.cs
+@@ -8,7 +8,7 @@ namespace Windy.SDK.Hooks
+     public sealed class HookRegistry
+     {
+         private readonly List<HookEntry<MessageEventArgs>> messageHooks = new();
+-        private readonly List<HookEntry<MessageEventArgs>> groupAtNoCommandHooks = new();
++        private readonly List<HookEntry<MessageEventArgs>> noCommandHooks = new();
+         private readonly List<HookEntry<AdaptorEventArgs>> eventHooks = new();
+         private readonly List<HookEntry<CommandArgs>> proHandleHooks = new();
+ 
+@@ -18,10 +18,14 @@ namespace Windy.SDK.Hooks
+             Sort(messageHooks);
+         }
+ 
+-        public void RegisterGroupAtNoCommand(WindyPlugin plugin, Func<MessageEventArgs, Task> handler, int priority = 0)
++        /// <summary>
++        /// 注册「消息没有匹配到任何指令」时的处理回调。
++        /// <para>注意：<b>所有场景</b>（群、群 AT、私聊）都会触发，由回调自行按 <see cref="MessageEventArgs.Scene"/> 决定是否响应。</para>
++        /// </summary>
++        public void RegisterNoCommand(WindyPlugin plugin, Func<MessageEventArgs, Task> handler, int priority = 0)
+         {
+-            groupAtNoCommandHooks.Add(new HookEntry<MessageEventArgs>(plugin.Name, plugin.RequiredAdaptor, null, priority, handler));
+-            Sort(groupAtNoCommandHooks);
++            noCommandHooks.Add(new HookEntry<MessageEventArgs>(plugin.Name, plugin.RequiredAdaptor, null, priority, handler));
++            Sort(noCommandHooks);
+         }
+ 
+         public void RegisterEvent(WindyPlugin plugin, string eventType, Func<AdaptorEventArgs, Task> handler, int priority = 0)
+@@ -54,17 +58,13 @@ namespace Windy.SDK.Hooks
+             }
+         }
+ 
+-        public async Task ExecuteGroupAtNoCommandAsync(MessageEventArgs args, CancellationToken cancellationToken = default)
++        /// <summary>指令表里找不到对应指令时触发；场景由回调自行判断。</summary>
++        public async Task ExecuteNoCommandAsync(MessageEventArgs args, CancellationToken cancellationToken = default)
+         {
+-            if (args.Scene != MessageScene.GroupAt)
+-            {
+-                return;
+-            }
+-
+-            foreach (HookEntry<MessageEventArgs> hook in groupAtNoCommandHooks.Where(hook => hook.AdaptorType == args.RawAdaptor.Type))
++            foreach (HookEntry<MessageEventArgs> hook in noCommandHooks.Where(hook => hook.AdaptorType == args.RawAdaptor.Type))
+             {
+                 cancellationToken.ThrowIfCancellationRequested();
+-                await InvokeSafely(hook.Handler, args, hook.PluginName, "GroupAtNoCommand");
++                await InvokeSafely(hook.Handler, args, hook.PluginName, "NoCommand");
+                 if (args.Handled)
+                 {
+                     return;
+@@ -114,7 +114,7 @@ namespace Windy.SDK.Hooks
+         public void Unregister(WindyPlugin plugin)
+         {
+             messageHooks.RemoveAll(hook => string.Equals(hook.PluginName, plugin.Name, StringComparison.OrdinalIgnoreCase));
+-            groupAtNoCommandHooks.RemoveAll(hook => string.Equals(hook.PluginName, plugin.Name, StringComparison.OrdinalIgnoreCase));
++            noCommandHooks.RemoveAll(hook => string.Equals(hook.PluginName, plugin.Name, StringComparison.OrdinalIgnoreCase));
+             eventHooks.RemoveAll(hook => string.Equals(hook.PluginName, plugin.Name, StringComparison.OrdinalIgnoreCase));
+             proHandleHooks.RemoveAll(hook => string.Equals(hook.PluginName, plugin.Name, StringComparison.OrdinalIgnoreCase));
+         }
+@@ -122,7 +122,7 @@ namespace Windy.SDK.Hooks
+         public void Clear()
+         {
+             messageHooks.Clear();
+-            groupAtNoCommandHooks.Clear();
++            noCommandHooks.Clear();
+             eventHooks.Clear();
+             proHandleHooks.Clear();
+         }
+diff --git a/Windy.SDK/Main.cs b/Windy.SDK/Main.cs
+index 7b05f1b..f010961 100644
+--- a/Windy.SDK/Main.cs
++++ b/Windy.SDK/Main.cs
+@@ -1,4 +1,5 @@
+ ﻿using System.Reflection;
++using Windy.SDK.Adaptor;
+ 
+ namespace Windy.SDK
+ {
+@@ -27,13 +28,28 @@ namespace Windy.SDK
+                 adaptor.MessageReceived += async (_, args) =>
+                 {
+                     await Hooks.ExecuteMessageAsync(args, cancellationToken);
+-                    if (!args.Handled)
++                    if (args.Handled)
+                     {
+-                        bool executed = await Commands.ExecuteAsync(args, Hooks, cancellationToken);
+-                        if (!executed && !args.Handled)
+-                        {
+-                            await Hooks.ExecuteGroupAtNoCommandAsync(args, cancellationToken);
+-                        }
++                        return;
++                    }
++
++                    Command.CommandDispatchResult result = await Commands.DispatchAsync(args, Hooks, cancellationToken);
++                    if (args.Handled)
++                    {
++                        return;
++                    }
++
++                    if (result.IsFailed)
++                    {
++                        // 指令匹配到了、但内部报错。必须说清楚「是系统这边出问题」，
++                        // 否则会走到未匹配兜底，给用户一句「不知道你想做什么」—— 既掩盖故障又误导。
++                        await NotifyFailureAsync(args, result);
++                        return;
++                    }
++
++                    if (result.IsNotFound)
++                    {
++                        await Hooks.ExecuteNoCommandAsync(args, cancellationToken);
+                     }
+                 };
+                 adaptor.EventReceived += async (_, args) => await Hooks.ExecuteEventAsync(args, cancellationToken);
+@@ -48,6 +64,40 @@ namespace Windy.SDK
+             }
+         }
+ 
++        /// <summary>
++        /// 指令执行失败时给用户一句明确的提示。
++        ///
++        /// <para>只负责「告知」，不替指令本身重试 —— 失败原因五花八门（参数不合法、
++        /// 服务器离线、网络超时），各自的重试语义不同，交给指令自己决定更合适。</para>
++        /// </summary>
++        private static async Task NotifyFailureAsync(Events.MessageEventArgs args, Command.CommandDispatchResult result)
++        {
++            try
++            {
++                await args.Adaptor.SendMessage(new MessageContent().AddMarkdown(
++                    "# ⚠️ 指令执行失败\n" +
++                    $"> 指令 `{result.CommandName}` 在处理时出错，不是你的操作问题。\n" +
++                    $"> 错误信息：{OneLine(result.ErrorMessage)}\n\n" +
++                    "> 详情已记录到控制台日志，请联系管理员排查。"));
++            }
++            catch
++            {
++                // 连提示都发不出去就算了 —— 真正的异常已经在控制台留过痕了。
++            }
++        }
++
++        /// <summary>把异常消息压成单行并限长，避免换行和超长文本把 markdown 排版撑乱。</summary>
++        private static string OneLine(string? text)
++        {
++            if (string.IsNullOrWhiteSpace(text))
++            {
++                return "未知错误";
++            }
++
++            string flat = text.Replace("\r", " ").Replace("\n", " ");
++            return flat.Length <= 120 ? flat : flat[..120] + "…";
++        }
++
+         public static async Task StopAsync(CancellationToken cancellationToken = default)
+         {
+             Plugins.DisposeAll(Hooks);
+diff --git a/Windy.SDK/Plugin/PluginManager.cs b/Windy.SDK/Plugin/PluginManager.cs
+index 2e47714..2442922 100644
+--- a/Windy.SDK/Plugin/PluginManager.cs
++++ b/Windy.SDK/Plugin/PluginManager.cs
+@@ -153,6 +153,7 @@ namespace Windy.SDK.Plugin
+                     adaptor.UnbindPlugin(plugin);
+                 }
+                 commands.RegisterFromPlugin(plugin);
++                plugin.OnCommandsRegistered();
+                 plugins.Add(plugin);
+                 Message.Yellow($"[{plugin.Name}] Version:{plugin.Version}(by {plugin.Author}) 成功加载.");
+             }
+diff --git a/Windy.SDK/Plugin/WindyPlugin.cs b/Windy.SDK/Plugin/WindyPlugin.cs
+index 3885681..1b5c2d7 100644
+--- a/Windy.SDK/Plugin/WindyPlugin.cs
++++ b/Windy.SDK/Plugin/WindyPlugin.cs
+@@ -21,12 +21,30 @@ namespace Windy.SDK.Plugin
+ 
+         public HookRegistry Hooks { get; private set; } = null!;
+ 
++        /// <summary>
++        /// 指令注册表。暴露出来是为了支持「父群替子群执行指令」这类需要主动分派的场景 ——
++        /// 构造一个改写了 <c>GroupId</c> 的 <see cref="Events.MessageEventArgs"/> 再交给它执行即可。
++        /// </summary>
++        public Command.CommandRegistry Commands { get; private set; } = null!;
++
+         public abstract void Initialize();
+ 
++        /// <summary>
++        /// 指令扫描完成后的回调，由加载器在注册表填充完毕后调用。
++        ///
++        /// <para><b>为什么需要它</b>：指令是加载器扫描 <c>[Command]</c> 特性注册的，
++        /// 时机在 <see cref="Initialize"/> 返回<b>之后</b>。想在启动时打印「注册了哪些指令」，
++        /// 写在 Initialize 里只会拿到一张空表 —— 看起来像所有指令都没注册成功。</para>
++        /// </summary>
++        public virtual void OnCommandsRegistered()
++        {
++        }
++
+         public void ProInitialize(PluginContext context)
+         {
+             Adaptor = context.Adaptor;
+             Hooks = context.Hooks;
++            Commands = context.Commands;
+         }
+ 
+         private void RegisterMessageHook(Func<MessageEventArgs, Task> handler, int priority = 0)
+@@ -34,9 +52,9 @@ namespace Windy.SDK.Plugin
+             Hooks.RegisterMessage(this, handler, priority);
+         }
+ 
+-        private void RegisterGroupAtNoCommandHook(Func<MessageEventArgs, Task> handler, int priority = 0)
++        private void RegisterNoCommandHook(Func<MessageEventArgs, Task> handler, int priority = 0)
+         {
+-            Hooks.RegisterGroupAtNoCommand(this, handler, priority);
++            Hooks.RegisterNoCommand(this, handler, priority);
+         }
+ 
+         private void RegisterEventHook(string eventType, Func<AdaptorEventArgs, Task> handler, int priority = 0)
+@@ -54,9 +72,9 @@ namespace Windy.SDK.Plugin
+             RegisterMessageHook(handler);
+         }
+ 
+-        internal void AddGroupAtNoCommandHandler(Func<MessageEventArgs, Task> handler)
++        internal void AddNoCommandHandler(Func<MessageEventArgs, Task> handler)
+         {
+-            RegisterGroupAtNoCommandHook(handler);
++            RegisterNoCommandHook(handler);
+         }
+ 
+         internal void AddEventHandler(string eventType, Func<AdaptorEventArgs, Task> handler)

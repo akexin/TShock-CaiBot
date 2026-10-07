@@ -49,6 +49,9 @@ internal static class Program
         Check("error 版本 = 2026.2.14", ProtocolVersions.For(PackageType.Error) == "2026.2.14");
         Check("ping 线名 = \"ping\"", PackageType.Ping.ToWire() == "ping");
         Check("ping 可反向解析", ProtocolNames.ParseType("ping") == PackageType.Ping);
+        Check("server_file 版本 = 2026.10.3.2", ProtocolVersions.For(PackageType.ServerFile) == "2026.10.3.2");
+        Check("server_file 线名 = \"server_file\"", PackageType.ServerFile.ToWire() == "server_file");
+        Check("server_file 可反向解析", ProtocolNames.ParseType("server_file") == PackageType.ServerFile);
         Check("not_registered 线名正确", WhitelistResult.NotRegistered.ToWire() == "not_registered");
         Check("not_registered 可反向解析", ProtocolNames.ParseWhitelistResult("not_registered") == WhitelistResult.NotRegistered);
 

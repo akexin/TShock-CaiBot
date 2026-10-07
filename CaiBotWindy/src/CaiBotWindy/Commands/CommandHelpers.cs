@@ -1,4 +1,5 @@
 using CaiBotWindy.Data;
+using CaiBotWindy.Localization;
 using CaiBotWindy.Net;
 using CaiBotWindy.Protocol;
 using CaiBotWindy.Services;
@@ -65,6 +66,7 @@ internal static class CommandHelpers
     [
         "在线", "在线总览", "查背包", "查看地图", "下载地图", "下载小地图",
         "排行", "插件列表", "系统状态", "远程指令", "进度查询",
+        "发文件", "看文件", "存档", "存档列表", "插件打包",
     ];
 
     /// <summary>
@@ -112,14 +114,14 @@ internal static class CommandHelpers
     {
         if (!App.Ready)
         {
-            await ReplyAsync(args, "# ⏳ 机器人尚未就绪\n> HTTP 服务或图鉴数据还在初始化，请稍后再试。");
+            await ReplyAsync(args, $"# {L.Get("error.not_ready")}\n> {L.Get("hint.not_ready_body")}");
             return null;
         }
 
         string? groupOpenId = args.Message.GroupId;
         if (string.IsNullOrEmpty(groupOpenId))
         {
-            await ReplyAsync(args, "# ⛔ 该指令只能在群聊中使用");
+            await ReplyAsync(args, $"# {L.Get("error.group_only")}");
             return null;
         }
 
@@ -127,8 +129,8 @@ internal static class CommandHelpers
         if (servers.Count == 0)
         {
             await ReplyAsync(args,
-                "# ⛔ 本群还没有绑定服务器\n" +
-                "> 在服务器控制台查看绑定码，然后发送：\n" +
+                $"# {L.Get("error.no_server")}\n" +
+                $"> {L.Get("hint.bind_server")}\n" +
                 "> <qqbot-cmd-input text=\"%2F添加服务器 \" show=\"添加服务器\" reference=\"false\" />");
             return null;
         }
@@ -137,13 +139,13 @@ internal static class CommandHelpers
         {
             if (index > 0)
             {
-                await ReplyAsync(args, $"# ⛔ 序号 {index} 对应的服务器不存在或未连接\n> 用「服务器列表」查看当前绑定情况。");
+                await ReplyAsync(args, $"# {L.Format("error.server_index", index)}\n> {L.Get("hint.server_list")}");
             }
             else
             {
                 await ReplyAsync(args,
-                    $"# ⛔ 服务器 **{record.ServerName}** 当前离线\n" +
-                    "> 请确认服务端已启动且适配插件已连接成功。");
+                    $"# {L.Format("error.server_offline", record.ServerName)}\n" +
+                    $"> {L.Get("hint.server_offline_body")}");
             }
 
             return null;
@@ -168,13 +170,13 @@ internal static class CommandHelpers
         }
         catch (ServerRpcException ex)
         {
-            string title = ex.IsTimeout ? "⏰ 服务器响应超时" : "⚠️ 服务器返回错误";
+            string title = ex.IsTimeout ? L.Get("error.rpc_timeout") : L.Get("error.rpc_failed");
             await ReplyAsync(args, $"# {title}\n> {ex.Message}");
             return null;
         }
         catch (Exception ex)
         {
-            await ReplyAsync(args, $"# ⚠️ 调用服务器失败\n> {ex.Message}");
+            await ReplyAsync(args, $"# {L.Get("error.call_failed")}\n> {ex.Message}");
             return null;
         }
     }

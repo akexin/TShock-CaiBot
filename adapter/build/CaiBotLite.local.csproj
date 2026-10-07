@@ -3,7 +3,8 @@
   <!--
     本地化编译工程：不依赖官方 template.targets（它走 NuGet 的 TShock 6.2.1 包与本机运行时不一定同版本），
     改为直接引用本机 TShock-Server 已安装的程序集，保证编译期签名与运行期完全一致。
-    源码目录 ../CaiBotLite 保持与上游 master 一致，仅对 Config.cs / WebsocketManager.cs 做最小改动。
+    源码目录 ../CaiBotLite 保持与上游 master 一致，仅对 Config.cs / WebsocketManager.cs / CaiBotLite.cs /
+    Enums/PacageTypes.cs / Common/CaiBotApi.cs 做最小改动，并新增 Common/ServerFileSupport.cs。
   -->
 
   <PropertyGroup>

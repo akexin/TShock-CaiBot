@@ -31,6 +31,7 @@ public enum PackageType
     ShopBuy,
     Ping,
     ServerLog,
+    ServerFile,
     Error,
     Unknown,
 }
@@ -108,6 +109,7 @@ public static class ProtocolNames
         PackageType.ShopBuy => "shop_buy",
         PackageType.Ping => "ping",
         PackageType.ServerLog => "server_log",
+        PackageType.ServerFile => "server_file",
         PackageType.Error => "error",
         _ => "unknown",
     };
@@ -132,6 +134,7 @@ public static class ProtocolNames
         "shop_buy" => PackageType.ShopBuy,
         "ping" => PackageType.Ping,
         "server_log" => PackageType.ServerLog,
+        "server_file" => PackageType.ServerFile,
         "error" => PackageType.Error,
         _ => PackageType.Unknown,
     };
@@ -219,6 +222,7 @@ public static class ProtocolVersions
         PackageType.PluginList => "2025.7.25",
         PackageType.ShopBuy => "2025.7.25",
         PackageType.ShopCondition => "2025.7.25",
+        PackageType.ServerFile => "2026.10.3.2",
         PackageType.Error => "2026.2.14",
         _ => Default,
     };

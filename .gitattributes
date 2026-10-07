@@ -1,0 +1,3 @@
+# 补丁文件必须保持 LF。检出时若按 core.autocrlf=true 转成 CRLF，
+# 上下文行会与目标文件对不上，git apply 直接报 "patch does not apply"。
+*.patch -text

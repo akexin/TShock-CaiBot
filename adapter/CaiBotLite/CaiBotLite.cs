@@ -14,7 +14,8 @@ namespace CaiBotLite;
 public class CaiBotLite(Main game) : TerrariaPlugin(game)
 {
     // 上游为 2026.09.28.1；本机版本把服务端地址改为可配置并支持明文 http/ws，故单独标记版本号。
-    public static readonly Version VersionNum = new (2026, 10, 03, 1);
+    // 2026.10.03.2 起新增 server_file 包（机器人点播服务端文件），机器人侧按该版本号做能力判定。
+    public static readonly Version VersionNum = new (2026, 10, 03, 2);
     internal static int InitCode = -1;
     internal static bool DebugMode = Program.LaunchParameters.ContainsKey("-caidebug");
     private const string CharacterInfoKey = "CaiBotLite.CharacterInfo";

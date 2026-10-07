@@ -1,4 +1,7 @@
+using CaiBotWindy.Infrastructure;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Windy.SDK;
 using Windy.SDK.Utils;
 
 namespace CaiBotWindy.Data;
@@ -238,6 +241,12 @@ public static class DataStore
     /// <summary>全局作用域的伪群 ID，用于存放机器人级黑名单等跨群配置。</summary>
     public const string GlobalScope = "*";
 
+    /// <summary>
+    /// 保留的 store.json 备份份数。
+    /// 落盘很频繁（每次进服校验都写），份数按「够回滚、不撑爆磁盘」取一个折中。
+    /// </summary>
+    public const int BackupKeepCount = 7;
+
     public static PluginData Data
     {
         get
@@ -249,17 +258,28 @@ public static class DataStore
         }
     }
 
+    /// <summary>
+    /// 载入数据。主文件损坏时自动回退到最近一份可用备份 ——
+    /// 配置损坏最典型的后果是「机器人再也起不来」，这里必须兜住。
+    /// </summary>
     public static void Load(string path)
     {
         lock (SyncRoot)
         {
             filePath = path;
-            data = JsonTool.Create<PluginData>(path).InitContent(new PluginData()).Read().Content ?? new PluginData();
+            data = LoadOrDefault(path);
         }
     }
 
+    /// <summary>
+    /// 落盘。写入经 <see cref="AtomicFile"/>：先写临时文件再原子替换，替换前自动备份旧内容。
+    ///
+    /// <para>序列化在锁内完成（拿到一致快照），磁盘 IO 放在锁外 ——
+    /// 避免磁盘卡顿拖慢白名单校验这类高频路径。</para>
+    /// </summary>
     public static void Save()
     {
+        string json;
         lock (SyncRoot)
         {
             if (string.IsNullOrEmpty(filePath))
@@ -267,7 +287,51 @@ public static class DataStore
                 return;
             }
 
-            JsonTool.Create<PluginData>(filePath).InitContent(data).Write();
+            json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        }
+
+        try
+        {
+            AtomicFile.Write(filePath, json, backup: true, keepBackups: BackupKeepCount);
+        }
+        catch (Exception ex)
+        {
+            // 写失败不抛出：内存里的改动还在，下次写入会重试。
+            // 抛出去反而可能打断正在进行的白名单校验。
+            Message.Yellow($"[CaiBotWindy] 保存数据失败（内存改动仍在，稍后重试）: {ex.Message}");
+        }
+    }
+
+    private static PluginData LoadOrDefault(string path)
+    {
+        string? json = AtomicFile.ReadWithFallback(path, IsUsableJson);
+        if (json is null)
+        {
+            return new PluginData();
+        }
+
+        try
+        {
+            return JsonConvert.DeserializeObject<PluginData>(json) ?? new PluginData();
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[CaiBotWindy] store.json 解析失败，已回退到空数据: {ex.Message}");
+            return new PluginData();
+        }
+    }
+
+    /// <summary>内容是否像一份能解析的 JSON 对象（用于决定要不要回退到备份）。</summary>
+    private static bool IsUsableJson(string content)
+    {
+        try
+        {
+            JObject.Parse(content);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
