@@ -242,6 +242,18 @@ public sealed class ServerSession
             ["whitelist_result"] = result.ToWire(),
         };
 
+        // 非放行的结果记一笔审计，管理员能事后查到「谁被拦、为什么」。
+        if (result != WhitelistResult.Accept)
+        {
+            AuditLog.Write(
+                "whitelist_check",
+                $"{packet.Payload.GetString("player_name")} → {result.ToWire()}",
+                actor: packet.Payload.GetString("player_name"),
+                group: GroupOpenId,
+                server: Record.ServerName,
+                result: result.ToWire());
+        }
+
         // 白名单是「服务器 -> Bot」的查询，Bot 的回包仍为单向通知（不参与请求-响应链路）。
         _ = SendAsync(BotPacket.Notify(PackageType.Whitelist, reply), CancellationToken.None);
     }

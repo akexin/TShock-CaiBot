@@ -1,6 +1,7 @@
 using System.Text;
 using CaiBotWindy.Commands;
 using CaiBotWindy.Data;
+using CaiBotWindy.Infrastructure;
 using CaiBotWindy.Net;
 using CaiBotWindy.Protocol;
 using CaiBotWindy.Services;
@@ -47,6 +48,11 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         string storageDirectory = ResolvePath(App.Config.StorageDirectory);
         Directory.CreateDirectory(storageDirectory);
         DataStore.Load(Path.Combine(storageDirectory, "store.json"));
+
+        // 审计日志（按天分文件）+ 运行日志轮转（超 32MB 归档）。
+        string logsDirectory = Path.Combine(WindyRuntime.BasicPath, "logs");
+        AuditLog.Configure(logsDirectory);
+        LogRotation.Start();
 
         string dataDirectory = ResolvePath(App.Config.DataDirectory);
         TerrariaData.Load(dataDirectory);
@@ -623,6 +629,8 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
 
         // 先让队列把还没发出去的通知尽力发完（它会等待一小段时间），再落盘收工。
         App.Outbox.Dispose();
+
+        LogRotation.Stop();
 
         DataStore.Save();
         Message.Yellow($"[{Name}] 已卸载。");

@@ -1,5 +1,6 @@
 using System.Text;
 using CaiBotWindy.Data;
+using CaiBotWindy.Infrastructure;
 using CaiBotWindy.Services;
 using Windy.SDK.Adaptor;
 using Windy.SDK.Command;
@@ -240,7 +241,14 @@ public static class WhitelistCommands
         }
 
         string code = args.GetOrDefault(0).Trim();
+        LoginAttempt? selfAttempt = DataStore.FindLoginAttempt(code);
         (bool success, string message) = WhitelistService.Approve(code);
+        AuditLog.Write(
+            success ? "whitelist_self_approve" : "whitelist_self_approve_failed",
+            $"{selfAttempt?.PlayerName ?? "?"}（{code}）",
+            actor: args.Message.AuthorId,
+            group: args.Message.GroupId,
+            result: success ? "ok" : message);
         await CommandHelpers.ReplyAsync(args,
             success ? $"# ✅ 登录成功\n{message}" : $"# ⛔ 登录失败\n> {message}");
     }
@@ -298,6 +306,12 @@ public static class WhitelistCommands
         if (approve)
         {
             (bool ok, string message) = WhitelistService.Approve(code);
+            AuditLog.Write(
+                ok ? "whitelist_approve" : "whitelist_approve_failed",
+                $"{attempt.PlayerName}（{code}）",
+                actor: args.Message.AuthorId,
+                group: args.Message.GroupId,
+                result: ok ? "ok" : message);
             await CommandHelpers.ReplyAsync(args, ok ? $"# ✅ 已批准登录\n> {message}" : $"# ⛔ 操作失败\n> {message}");
             return;
         }
@@ -309,6 +323,12 @@ public static class WhitelistCommands
                          args.GetOrDefault(1).Trim() is "拉黑" or "黑名单" or "ban";
 
         (bool rejected, string rejectedMessage) = WhitelistService.Reject(code, blacklist);
+        AuditLog.Write(
+            rejected ? "whitelist_reject" : "whitelist_reject_failed",
+            $"{attempt.PlayerName}（{code}）拉黑={blacklist}",
+            actor: args.Message.AuthorId,
+            group: args.Message.GroupId,
+            result: rejected ? "ok" : rejectedMessage);
         await CommandHelpers.ReplyAsync(args,
             rejected ? $"# ✅ 已拒绝登录\n> {rejectedMessage}" : $"# ⛔ 操作失败\n> {rejectedMessage}");
     }

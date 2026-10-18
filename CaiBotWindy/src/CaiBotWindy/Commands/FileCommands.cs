@@ -1,4 +1,5 @@
 using System.Text;
+using CaiBotWindy.Infrastructure;
 using CaiBotWindy.Net;
 using CaiBotWindy.Protocol;
 using CaiBotWindy.Services;
@@ -94,6 +95,12 @@ public static class FileCommands
         }
 
         JObject payload = packet.Payload;
+        AuditLog.Write(
+            "file_view",
+            path.Length == 0 ? "(根目录)" : path,
+            actor: args.Message.AuthorId,
+            group: args.Message.GroupId,
+            server: session.Record.ServerName);
         await CommandHelpers.ReplyAsync(args,
             payload.GetString("action") == "info"
                 ? RenderInfo(session, payload)
@@ -273,6 +280,13 @@ public static class FileCommands
             $"- 来源：`{path}`\n" +
             $"- 内容：`{name}`　{Human(data.LongLength)}" +
             (folder ? "（目录已打包为 zip）" : ""));
+
+        AuditLog.Write(
+            "file_download",
+            path,
+            actor: args.Message.AuthorId,
+            group: args.Message.GroupId,
+            server: session.Record.ServerName);
 
         await args.Adaptor.SendFile(data, name, "application/octet-stream");
     }

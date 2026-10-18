@@ -34,6 +34,13 @@ cd /d "%DEPLOY%"
 
 if not exist "%DEPLOY%\Logs" mkdir "%DEPLOY%\Logs"
 
+rem Rotate bot.log BEFORE Windy opens it.  bot.log is the stdout redirect of
+rem Windy.exe (">> ... 2>&1" below), so the running process holds a lock and
+rem the plugin can NOT rename it at runtime.  Rotating here (pre-launch) is the
+rem only safe point.  32 MB threshold.  Archives (bot-*.log) accumulate; prune
+rem them manually or with a separate scheduled cleanup when convenient.
+powershell -NoProfile -Command "$f='%DEPLOY%\Logs\bot.log'; if((Test-Path $f) -and ((Get-Item $f).Length -gt 32MB)){ Move-Item -LiteralPath $f -Destination ('%DEPLOY%\Logs\bot-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.log') -Force }"
+
 echo ============================================================
 echo   CaiBotWindy  (Windy host / net10.0)
 echo ------------------------------------------------------------

@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using CaiBotWindy.Data;
+using CaiBotWindy.Infrastructure;
 using CaiBotWindy.Protocol;
 using Newtonsoft.Json.Linq;
 using Windy.SDK;
@@ -219,6 +221,21 @@ public sealed class BotHttpServer
 
     // ── GET /server/token/{init_code} ───────────────────────────────────────────
 
+    /// <summary>绑定码换令牌端点按来源 IP 的尝试状态。绑定码是短数字，必须防暴力枚举。</summary>
+    private sealed class TokenAttemptState
+    {
+        public int Count;
+        public long WindowStartMs;
+        public int ConsecutiveFailures;
+        public long LockedUntilMs;
+    }
+
+    private readonly ConcurrentDictionary<string, TokenAttemptState> tokenAttempts = new(StringComparer.Ordinal);
+
+    private const int TokenMaxAttemptsPerMinute = 10;
+    private const int TokenMaxConsecutiveFailures = 5;
+    private const long TokenLockoutMs = 5 * 60 * 1000;
+
     private async Task HandleTokenAsync(HttpListenerContext context, string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -227,32 +244,89 @@ public sealed class BotHttpServer
             return;
         }
 
+        string ip = context.Request.RemoteEndPoint?.Address?.ToString() ?? "unknown";
+        if (!AcquireTokenAttempt(ip))
+        {
+            await WriteTextAsync(context, 429, "Too Many Requests", "text/plain; charset=utf-8");
+            return;
+        }
+
         ServerRecord? record = DataStore.FindServerByCode(code);
         if (record is null)
         {
+            RecordTokenFailure(ip);
             await WriteTextAsync(context, 404, "Not Found", "text/plain; charset=utf-8");
             return;
         }
 
         if (DateTime.UtcNow - record.CreatedAtUtc > TimeSpan.FromMinutes(config.BindCodeLifetimeMinutes))
         {
+            RecordTokenFailure(ip);
             Message.Yellow($"[{App.BotName}] 绑定码 {code} 已过期（{config.BindCodeLifetimeMinutes} 分钟）。");
             await WriteTextAsync(context, 404, "Not Found", "text/plain; charset=utf-8");
             return;
         }
 
-        if (!record.Bound)
+        bool firstBind = !record.Bound;
+        if (firstBind)
         {
             record.Bound = true;
             DataStore.SaveServerChange();
             Message.Green($"[{App.BotName}] 绑定码 {code} 已被服务端换取令牌，群 {record.GroupOpenId}。");
+            AuditLog.Write("server_bind", $"绑定码 {code}", actor: ip, group: record.GroupOpenId, server: record.ServerName);
         }
+
+        RecordTokenSuccess(ip);
 
         await WriteJsonAsync(context, 200, new JObject
         {
             ["token"] = record.Token,
             ["group_open_id"] = record.GroupOpenId,
         });
+    }
+
+    /// <summary>尝试记一次绑定码请求；窗口内超限或处于锁定期返回 <c>false</c>。</summary>
+    private bool AcquireTokenAttempt(string ip)
+    {
+        TokenAttemptState state = tokenAttempts.GetOrAdd(ip, _ => new TokenAttemptState());
+        long now = Environment.TickCount64;
+
+        lock (state)
+        {
+            if (now < state.LockedUntilMs)
+            {
+                return false;
+            }
+
+            if (now - state.WindowStartMs >= 60_000)
+            {
+                state.Count = 0;
+                state.WindowStartMs = now;
+            }
+
+            state.Count++;
+            return state.Count <= TokenMaxAttemptsPerMinute;
+        }
+    }
+
+    private void RecordTokenFailure(string ip)
+    {
+        TokenAttemptState state = tokenAttempts.GetOrAdd(ip, _ => new TokenAttemptState());
+        lock (state)
+        {
+            state.ConsecutiveFailures++;
+            if (state.ConsecutiveFailures >= TokenMaxConsecutiveFailures)
+            {
+                state.LockedUntilMs = Environment.TickCount64 + TokenLockoutMs;
+                state.ConsecutiveFailures = 0;
+                Message.Yellow($"[{App.BotName}] 来源 {ip} 绑定码连续失败 {TokenMaxConsecutiveFailures} 次，已锁定 {TokenLockoutMs / 60000} 分钟。");
+            }
+        }
+    }
+
+    private void RecordTokenSuccess(string ip)
+    {
+        tokenAttempts.TryRemove(ip, out _);
     }
 
     // ── WS /server/ws/{group_open_id}/{server_type}/ ────────────────────────────
