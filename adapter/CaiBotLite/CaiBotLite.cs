@@ -76,19 +76,46 @@ public class CaiBotLite(Main game) : TerrariaPlugin(game)
         base.Dispose(disposing);
     }
 
-    private static int _timer;
+    private static readonly System.Diagnostics.Stopwatch PersistClock = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>角色数据落库间隔。原来是按 tick 计数（60×60×5），实际只有 5 分钟，写成了 5 小时的本意。</summary>
+    private const long PersistIntervalMs = 5 * 60 * 60 * 1000L;
+
+    private static long _nextPersistMs = PersistIntervalMs;
+
+    /// <summary>待落库的角色队列。主线程只入队，每 tick 最多写 <see cref="PersistPerTick"/> 个，把 SQLite IO 摊平。</summary>
+    private static readonly System.Collections.Generic.Queue<CaiCharacterInfo> PersistQueue = new();
+
+    private const int PersistPerTick = 2;
 
     private static void OnGameUpdate(EventArgs args)
     {
-        if (_timer >= 60 * 60 * 5)
+        // 到点抓一轮在线角色。这里只做入队（纯内存），真正的 SQLite 写入分散到后续 tick，
+        // 避免一次性遍历所有玩家写库造成掉帧。
+        if (PersistClock.ElapsedMilliseconds >= _nextPersistMs)
         {
+            _nextPersistMs = PersistClock.ElapsedMilliseconds + PersistIntervalMs;
+
             foreach (var player in TShock.Players.Where(x => x is { Active: true }))
             {
                 var characterInfo = player.GetData<CaiCharacterInfo>(CharacterInfoKey);
-                characterInfo?.CreatOrUpdate();
+                if (characterInfo is not null)
+                {
+                    PersistQueue.Enqueue(characterInfo);
+                }
             }
+        }
 
-            _timer = 0;
+        for (int i = 0; i < PersistPerTick && PersistQueue.Count > 0; i++)
+        {
+            try
+            {
+                PersistQueue.Dequeue().CreatOrUpdate();
+            }
+            catch (Exception ex)
+            {
+                TShock.Log.ConsoleError("[CaiBotLite] 角色数据落库出错：" + ex);
+            }
         }
 
         try
@@ -99,8 +126,6 @@ public class CaiBotLite(Main game) : TerrariaPlugin(game)
         {
             TShock.Log.ConsoleError("[CaiBotLite] 物品监控扫描出错：" + ex);
         }
-
-        _timer++;
     }
     
     private static void NetplayOnUpdateInMainThread(On.Terraria.Netplay.orig_UpdateInMainThread orig)
@@ -206,7 +231,8 @@ public class CaiBotLite(Main game) : TerrariaPlugin(game)
                 ShowHelpText();
                 break;
             case "test":
-                _timer = 60 * 60 * 5;
+                // 让下一次 tick 立即抓一轮在线角色落库（原实现是把 tick 计数器顶到阈值）。
+                _nextPersistMs = 0;
                 Console.WriteLine("你怎么知道Cai喜欢留一个测试命令?");
                 break;
             case "reset":

@@ -76,14 +76,9 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         };
         App.Server = server;
 
-        try
-        {
-            server.Start();
-        }
-        catch (Exception ex)
-        {
-            Message.Red($"[{Name}] HTTP 服务启动失败，机器人将无法接收服务器连接: {ex.Message}");
-        }
+        // 端口占用、URLACL 未生效这类问题往往是瞬时的（比如上一个进程还在释放端口），
+        // 直接放弃会让机器人永久处于「收不到服务端连接」的状态，所以做几次短退避重试。
+        StartHttpServerWithRetry();
 
         App.Ready = true;
 
@@ -122,6 +117,44 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         Message.Yellow(
             $"[{Name}] 下一步：在 TShock 侧安装 CaiBotLite 适配插件，并把其 BotServerUrl 指向本机器人；" +
             "然后在群里发送「/添加服务器 <IP> <端口> <绑定码>」。");
+    }
+
+    /// <summary>
+    /// 启动 HTTP 服务，失败时按 1s / 2s / 4s 退避重试。
+    /// <para>HTTP 是机器人的主通道 —— 起不来就等于收不到任何服务端数据，而端口占用、
+    /// URLACL 生效延迟这类原因往往是瞬时的，所以宁可多试几次也不直接放弃。</para>
+    /// </summary>
+    private void StartHttpServerWithRetry()
+    {
+        if (server is null)
+        {
+            return;
+        }
+
+        TimeSpan[] delays = [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4)];
+        for (int attempt = 0; attempt <= delays.Length; attempt++)
+        {
+            try
+            {
+                server.Start();
+                if (attempt > 0)
+                {
+                    Message.Green($"[{Name}] HTTP 服务在第 {attempt + 1} 次尝试后启动成功。");
+                }
+
+                return;
+            }
+            catch (Exception ex) when (attempt < delays.Length)
+            {
+                Message.Yellow($"[{Name}] HTTP 服务启动失败（第 {attempt + 1} 次），{delays[attempt].TotalSeconds:0} 秒后重试: {ex.Message}");
+                Thread.Sleep(delays[attempt]);
+            }
+            catch (Exception ex)
+            {
+                Message.Red($"[{Name}] HTTP 服务启动失败（共尝试 {delays.Length + 1} 次），机器人将无法接收服务器连接: {ex.Message}");
+                Message.Yellow($"[{Name}] 排查方向：端口是否被占用（netstat -ano | findstr 22338）、URLACL 是否已授权。");
+            }
+        }
     }
 
     /// <summary>加载器扫描完 <c>[Command]</c> 后回调 —— 此时注册表才是完整的。</summary>

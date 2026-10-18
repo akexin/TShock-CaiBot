@@ -44,6 +44,13 @@ public sealed class PluginConfig
     public int DownloadFileLifetimeMinutes { get; set; } = 10;
 
     /// <summary>
+    /// 是否允许从非回环地址访问 <c>GET /plugin/{name}</c>（下载 Windy 运行目录下 <c>Plugins/</c> 里的文件）。
+    /// <para>默认 <c>false</c>：该端点没有 token 体系，只靠文件名即可取走插件二进制，
+    /// 因此默认仅限本机。确实需要远程取插件时再打开，并自行用防火墙限制来源。</para>
+    /// </summary>
+    public bool AllowRemotePluginDownload { get; set; }
+
+    /// <summary>
     /// 单帧 JSON 软上限（字节）。TShock 侧适配插件接收缓冲区为 1024 字节且只解析最后一帧，
     /// 超过该值会导致对端解析失败，因此发出前会记警告。
     /// </summary>

@@ -70,6 +70,16 @@ public sealed class BotHttpServer
         }
         catch (HttpListenerException ex)
         {
+            // 失败时要把 listener 关掉，否则调用方每次重试都会泄漏一个 HttpListener。
+            try
+            {
+                http.Close();
+            }
+            catch
+            {
+                // 关闭异常忽略，保留原始错误。
+            }
+
             Message.Red($"[{App.BotName}] HTTP 服务启动失败: {ex.Message}");
             Message.Yellow($"[{App.BotName}] 若为「拒绝访问」，请以管理员身份执行一次：");
             Message.Yellow($"[{App.BotName}]   netsh http add urlacl url={config.ListenPrefixes.FirstOrDefault() ?? "http://+:22338/"} user=Everyone");
@@ -401,6 +411,14 @@ public sealed class BotHttpServer
 
     private async Task HandlePluginFileAsync(HttpListenerContext context, string name)
     {
+        // 这个端点没有 token 体系，只靠文件名就能取走 Plugins 下的二进制，
+        // 所以默认只放行本机；远端要取插件请走 server_file 包（WS 内已有会话鉴权）。
+        if (!config.AllowRemotePluginDownload && !IsLoopbackRequest(context.Request))
+        {
+            await WriteTextAsync(context, 403, "Forbidden", "text/plain; charset=utf-8");
+            return;
+        }
+
         string decoded = Uri.UnescapeDataString(name);
         if (decoded.Contains('/') || decoded.Contains('\\') || decoded.Contains("..", StringComparison.Ordinal))
         {
@@ -473,8 +491,14 @@ public sealed class BotHttpServer
         WriteBytes(context, data);
     }
 
-    private static string ContentTypeOf(string path)
+    /// <summary>请求是否来自本机（回环地址）。用于给没有 token 体系的端点兜底。</summary>
+    private static bool IsLoopbackRequest(HttpListenerRequest request)
     {
+        IPEndPoint? remote = request.RemoteEndPoint;
+        return remote is not null && IPAddress.IsLoopback(remote.Address);
+    }
+
+    private static string ContentTypeOf(string path)    {
         return Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".png" => "image/png",

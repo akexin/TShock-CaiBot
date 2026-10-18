@@ -198,9 +198,13 @@ python CaiBotWindy/scripts/fetch_assets.py all \
 | 文件 | 职责 |
 | --- | --- |
 | `Services/RenderKit.cs` | 字体 / 素材加载与缓存、SkiaSharp 原生库预加载、画布、缩放、圆角面板、PNG 编码 |
+| `Services/RenderGate.cs` | 渲染闸门：并发上限 = CPU 核数 / 2，同内容 60 秒内复用 PNG |
 | `Services/TextStyle.cs` | 字号封装 + 8 方向描边（背景明暗不定时保证任何底色上都读得清） |
 | `Services/ProgressRenderer.cs` | 进度卡片（1080×1440，底色星空自绘） |
 | `Services/BagRenderer.cs` | 背包卡片（宽 976 × 高度动态，按容器分区） |
+
+> 卡片是纯 CPU 活，群里连点会把核心打满、连累同进程的 HTTP 收发，所以统一走 `RenderGate`：
+> 同时最多渲染「CPU 核数 / 2」张，且相同数据（按数据包 JSON 的 SHA-256 判定）60 秒内直接复用上次的 PNG。
 
 #### 进度卡片的底图
 
@@ -279,6 +283,7 @@ python CaiBotWindy/scripts/fetch_assets.py all \
   "FileRequestTimeoutSeconds": 60,    // 地图 / 世界文件类 RPC 超时
   "BindCodeLifetimeMinutes": 30,      // 绑定码有效期
   "DownloadFileLifetimeMinutes": 10,  // /download/{file_id} 临时文件保留时长
+  "AllowRemotePluginDownload": false, // 是否允许非本机访问 GET /plugin/{name}
 
   // 单帧 JSON 软上限。适配插件接收缓冲区只有 1024 字节且只解析最后一帧，
   // 超过会记警告（详见第 12 节）。

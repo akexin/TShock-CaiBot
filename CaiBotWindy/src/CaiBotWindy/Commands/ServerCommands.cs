@@ -468,7 +468,8 @@ public static class ServerCommands
             BossLock = payload.GetStringMap("boss_lock"),
         };
 
-        byte[]? card = ProgressRenderer.Render(snapshot);
+        // 走渲染闸门：限并发 + 60 秒内同内容复用，避免群里连点把 CPU 打满。
+        byte[]? card = RenderGate.Run("progress", payload.ToString(), () => ProgressRenderer.Render(snapshot));
         if (card is not null)
         {
             // msg_type=7：富媒体（图片）+ 按钮。适配器在图片分支里同时支持 keyboard。
@@ -545,7 +546,8 @@ public static class ServerCommands
 
         // 官方 CaiBotLite 是把背包画成一张卡片发的（services/lookbag.py）；这里同样出图，
         // 素材 / 字体缺失时退回原来的文本列表（MenuKit.RenderLookBag）。
-        byte[]? card = BagRenderer.Render(BagRenderer.FromJson(payload.ToString()));
+        string bagJson = payload.ToString();
+        byte[]? card = RenderGate.Run("bag", bagJson, () => BagRenderer.Render(BagRenderer.FromJson(bagJson)));
         if (card is not null)
         {
             MessageContent message = new MessageContent()
