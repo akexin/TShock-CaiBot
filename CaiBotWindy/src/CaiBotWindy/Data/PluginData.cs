@@ -9,6 +9,14 @@ namespace CaiBotWindy.Data;
 /// <summary>持久化根对象，保存在 <c>Config/CaiBotWindy/store.json</c>。</summary>
 public sealed class PluginData
 {
+    /// <summary>
+    /// 数据结构的版本号。加载时按此号顺序迁移到 <see cref="DataStore.CurrentSchemaVersion"/>。
+    /// <para>默认 1：旧文件没有这个字段时，反序列化沿用该默认值（旧文件本来就是 v1 结构）；
+    /// 显式读到 0 时由 <see cref="DataStore.Migrate"/> 兜底抬到 1。以后加字段 / 改结构时，
+    /// 调高本默认值并在 <see cref="DataStore.Migrate"/> 里补迁移步。</para>
+    /// </summary>
+    public int SchemaVersion { get; set; } = 1;
+
     // 集合属性必须声明 Replace：Newtonsoft 默认把 JSON 数组「追加」到属性现有实例，
     // 若保留字段初始值会造成重复条目（重复加载时尤其明显）。
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
@@ -241,6 +249,9 @@ public static class DataStore
     /// <summary>全局作用域的伪群 ID，用于存放机器人级黑名单等跨群配置。</summary>
     public const string GlobalScope = "*";
 
+    /// <summary>当前数据结构的版本号。升级结构时 +1，并在 <see cref="Migrate"/> 里补迁移步。</summary>
+    public const int CurrentSchemaVersion = 1;
+
     /// <summary>
     /// 保留的 store.json 备份份数。
     /// 落盘很频繁（每次进服校验都写），份数按「够回滚、不撑爆磁盘」取一个折中。
@@ -312,13 +323,35 @@ public static class DataStore
 
         try
         {
-            return JsonConvert.DeserializeObject<PluginData>(json) ?? new PluginData();
+            PluginData loaded = JsonConvert.DeserializeObject<PluginData>(json) ?? new PluginData();
+            Migrate(loaded);
+            return loaded;
         }
         catch (Exception ex)
         {
             Message.Yellow($"[{App.BotName}] store.json 解析失败，已回退到空数据: {ex.Message}");
             return new PluginData();
         }
+    }
+
+    /// <summary>
+    /// 按 <see cref="PluginData.SchemaVersion"/> 顺序迁移数据到
+    /// <see cref="CurrentSchemaVersion"/>。
+    ///
+    /// <para>旧文件没有 SchemaVersion 字段，反序列化后是 0 —— 一律先抬到 v1。
+    /// 以后每次加字段 / 改结构，就在这里追加一步：</para>
+    /// <code>if (store.SchemaVersion &lt; 2) { /* 补默认值 / 改结构 */ store.SchemaVersion = 2; }</code>
+    /// </summary>
+    internal static void Migrate(PluginData store)
+    {
+        if (store.SchemaVersion <= 0)
+        {
+            // v1 是首个带版本号的 schema；旧文件视为 v1 起点，无需数据变换。
+            store.SchemaVersion = 1;
+        }
+
+        // 未来迁移步写在这里，逐级抬升，最终等于 CurrentSchemaVersion。
+        // if (store.SchemaVersion < 2) { ...; store.SchemaVersion = 2; }
     }
 
     /// <summary>内容是否像一份能解析的 JSON 对象（用于决定要不要回退到备份）。</summary>
