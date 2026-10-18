@@ -35,6 +35,11 @@ jobs:
       - name: Build
         run: dotnet build CaiBotWindy/CaiBotWindy.slnx -c Release --nologo
 
+      # 适配插件（TShock 侧，net9.0）依赖 7 个上游工程，已随仓库入库，
+      # 不再需要 `template.targets` 缺失之类的外部准备。
+      - name: Build adapter (CaiBotLite)
+        run: dotnet build adapter/CaiBotLite/CaiBotLite.csproj -c Release --nologo
+
       - name: Protocol self-check
         run: dotnet CaiBotWindy/tests/ProtocolTest/bin/Release/net10.0/ProtocolTest.dll
 

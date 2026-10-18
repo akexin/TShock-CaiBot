@@ -7,7 +7,7 @@ TShock（Terraria 服务端）的 QQ 官方机器人项目，包含机器人本�
 | 路径 | 说明 |
 | --- | --- |
 | `CaiBotWindy/` | 机器人本体（对外名 **xuejibot**，由 `App.BotName` 定义；目录与程序集仍叫 CaiBotWindy）。基于 Windy（QQ 官方机器人 SDK，C# / .NET 10）自建 Bot 端，兼容 CaiBotLite 的全部数据包接口 |
-| `adapter/` | TShock 侧适配插件。上游 CaiBotLite 的本地化改造版（`BotServerUrl` 改为配置项、按需 TLS、修复多帧解析），并新增 `server_file` 包以支持机器人点播服务端文件；附本地编译工程 |
+| `adapter/` | TShock 侧适配插件。上游 CaiBotLite 的本地化改造版（`BotServerUrl` 改为配置项、按需 TLS、修复多帧解析），并新增 `server_file` 包以支持机器人点播服务端文件。依赖的 7 个上游工程（BossLock / Economics.Core / Economics.RPG / Economics.Script / Economics.Skill / GenerateMap / ProgressControls）与 `template.targets` 已随仓库入库，可直接编译 |
 | `CaiBotWindy/deploy/Asserts/` | 图鉴素材（物品 / 生物 / 弹幕 / 增益图标、世界图标、Boss 头像、字体、背景图） |
 | `Start-WindyBot.bat` | 机器人启动脚本 |
 | `Start-TShockServer.bat` | TShock 服务端启动脚本 |
@@ -24,17 +24,23 @@ TShock（Terraria 服务端）的 QQ 官方机器人项目，包含机器人本�
 
 ## 快速开始
 
-1. 装 .NET 10 SDK（机器人侧）
+1. 装 .NET 10 SDK（机器人侧）与 .NET 9 目标包（适配插件是 `net9.0`，SDK 会按需还原）
 2. 编译机器人：
    ```bash
    dotnet build CaiBotWindy/CaiBotWindy.slnx -c Release
    ```
-3. 自检、出图预览：
+3. 编译 TShock 侧适配插件（依赖已入库，无需额外准备）：
+   ```bash
+   dotnet build adapter/CaiBotLite/CaiBotLite.csproj -c Release
+   ```
+   产物在仓库根 `out/Release/CaiBotLite.dll`
+4. 自检、出图预览：
    ```bash
    dotnet run --project CaiBotWindy/tests/ProtocolTest                              # 协议自检 75 项
+   dotnet test CaiBotWindy/tests/CaiBotWindy.Tests -c Release                       # 单元测试 144 项
    dotnet run --project CaiBotWindy/tests/ProgressPreview -- CaiBotWindy/deploy/Asserts ./out/card
    ```
-4. 部署与配置见 [`CaiBotWindy/README.md`](CaiBotWindy/README.md)
+5. 部署与配置见 [`CaiBotWindy/README.md`](CaiBotWindy/README.md)
 
 > NuGet 走华为云镜像（`CaiBotWindy/NuGet.config`）；`api.nuget.org` 不通的环境可直接用。
 
@@ -60,6 +66,7 @@ TShock（Terraria 服务端）的 QQ 官方机器人项目，包含机器人本�
 | 图鉴图标 / 世界图标 / Boss 头像 / 字体 | [`UnrealMultiple/TShockPlugin`](https://github.com/UnrealMultiple/TShockPlugin) 的 `CaiBotLite/assets/`，用 `CaiBotWindy/scripts/fetch_assets.py` 同步 |
 | 图鉴数据（物品 / 生物 / 弹幕 / 增益 / 修饰） | [`Cjx8848/TerraWiki`](https://github.com/Cjx8848/TerraWiki) 的 `Files/*.json` |
 | `adapter/CaiBotLite/` | 上游 CaiBotLite 的本地化改造版，版权归原作者 |
+| `adapter/` 下 BossLock、Economics.*、GenerateMap、ProgressControls 及根目录 `template.targets` | 取自 [`UnrealMultiple/TShockPlugin`](https://github.com/UnrealMultiple/TShockPlugin) 的 `src/` 与仓库根，仅作适配插件的编译依赖，版权归原作者 |
 | `ProgressBackground.png` / `BagBackground.png` | 本项目自绘 |
 
 第三方素材与代码的版权归各自作者，遵循其原仓库的许可条款。

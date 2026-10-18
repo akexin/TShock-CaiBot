@@ -39,6 +39,9 @@ CaiBotWindy/deploy/*.json
 CaiBotWindy/refs/
 adapter/build/out/
 
+# ── adapter 构建产物（template.targets 的 OutputPath 指到仓库根 out/）──
+/out/
+
 # ── 测试 / 脚本产物 ───────────────────────────────────────────────
 CaiBotWindy/tests/ProgressPreview/out/
 CaiBotWindy/tests/ProgressPreview/mobile/
