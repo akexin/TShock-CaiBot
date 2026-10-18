@@ -23,7 +23,7 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
 {
     private BotHttpServer? server;
 
-    public override string Name => "CaiBotWindy";
+    public override string Name => App.BotName;
 
     public override string Version => "2026.10.3";
 
@@ -226,13 +226,13 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         }
         catch (Exception ex)
         {
-            Message.Yellow("[CaiBotWindy] 入群欢迎消息发送失败: " + ex.Message);
+            Message.Yellow($"[{App.BotName}] 入群欢迎消息发送失败: " + ex.Message);
         }
     }
 
     private static Task OnGroupDelRobotAsync(QQOfficialGroupOperationEventArgs args)
     {
-        Message.Yellow($"[CaiBotWindy] 机器人已被移出群 {args.GroupOpenId}，正在清理绑定。");
+        Message.Yellow($"[{App.BotName}] 机器人已被移出群 {args.GroupOpenId}，正在清理绑定。");
 
         foreach (ServerRecord record in DataStore.GetServers(args.GroupOpenId))
         {
@@ -349,17 +349,17 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
             if (banned)
             {
                 await args.RejectAsync("你在云黑名单中，如有疑问请联系群管理员", addToMemberBlacklist: true);
-                Message.Yellow($"[CaiBotWindy] 已自动拒绝入群申请：{who}（云黑命中）");
+                Message.Yellow($"[{App.BotName}] 已自动拒绝入群申请：{who}（云黑命中）");
             }
             else
             {
                 await args.ApproveAsync();
-                Message.Green($"[CaiBotWindy] 已自动通过入群申请：{who}");
+                Message.Green($"[{App.BotName}] 已自动通过入群申请：{who}");
             }
         }
         catch (Exception ex)
         {
-            Message.Red($"[CaiBotWindy] 处理入群申请失败（{who}）: {ex.Message}");
+            Message.Red($"[{App.BotName}] 处理入群申请失败（{who}）: {ex.Message}");
             return;
         }
 
@@ -495,11 +495,11 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
                         ("拒绝", $"/审批入群 {args.MemberOpenId} 拒绝"),
                         ("拒绝并拉黑", $"/审批入群 {args.MemberOpenId} 拒绝 拉黑"))));
 
-            Message.Green($"[CaiBotWindy] 入群申请已推送待审：{DescribeJoinUser(args)}");
+            Message.Green($"[{App.BotName}] 入群申请已推送待审：{DescribeJoinUser(args)}");
         }
         catch (Exception ex)
         {
-            Message.Yellow($"[CaiBotWindy] 推送入群申请失败: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 推送入群申请失败: {ex.Message}");
         }
     }
 
@@ -571,7 +571,7 @@ public sealed class CaiBotWindyPlugin : WindyPlugin
         }
         catch (Exception ex)
         {
-            Message.Yellow($"[CaiBotWindy] 入群结果通知发送失败: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 入群结果通知发送失败: {ex.Message}");
         }
     }
 

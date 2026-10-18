@@ -513,8 +513,9 @@ public static class ServerCommands
             return;
         }
 
+        // 序号放最后；玩家名取第一个词（与旧行为一致）。
         string playerName = args.GetOrDefault(0);
-        int index = args.Parameters.Length >= 2 ? CommandHelpers.ParseServerIndex(args, 1) : 0;
+        int index = CommandHelpers.ParseTrailingIndex(args, 1);
 
         ServerSession? session = await CommandHelpers.ResolveServerAsync(args, index);
         if (session is null)
@@ -681,11 +682,12 @@ public static class ServerCommands
     [Command("排行", "查询服务器排行榜", MessageScene.GroupAt, "ph", "rank", "榜单", "排行榜")]
     public static async Task RankAsync(CommandArgs args)
     {
+        // 序号放最后：/排行 金币 2
         string rankType = args.GetOrDefault(0);
         string rankArg = args.Parameters.Length >= 2 && !int.TryParse(args.GetOrDefault(1), out _)
             ? args.GetOrDefault(1)
             : "";
-        int index = args.Parameters.Length >= 2 ? CommandHelpers.ParseTrailingIndex(args, 1) : 0;
+        int index = CommandHelpers.ParseTrailingIndex(args, 1);
 
         ServerSession? session = await CommandHelpers.ResolveServerAsync(args, index);
         if (session is null)
@@ -848,7 +850,7 @@ public static class ServerCommands
             }
             catch (Exception ex)
             {
-                Windy.SDK.Message.Yellow($"[CaiBotWindy] 发送自踢通知失败: {ex.Message}");
+                Windy.SDK.Message.Yellow($"[{App.BotName}] 发送自踢通知失败: {ex.Message}");
             }
         }
 
@@ -869,16 +871,18 @@ public static class ServerCommands
         if (!args.Require(1))
         {
             await CommandHelpers.ReplyAsync(args,
-                "# 🍥 远程指令\n> 用法：" + MenuKit.CmdInput("/远程指令 ", "远程指令 <指令内容> [服务器序号]") + "\n> 例如：`/远程指令 /time noon`");
+                "# 🍥 远程指令\n> 用法：" + MenuKit.CmdInput("/远程指令 ", "远程指令 <服务器序号> <指令>") +
+                "\n> 例如：`/远程指令 1 /time noon`、`/远程指令 2 /help`");
             return;
         }
 
-        List<string> parts = [.. args.Parameters];
-        int index = 0;
-        if (parts.Count >= 2 && parts[^1].Length <= 2 && int.TryParse(parts[^1], out int parsedIndex) && parsedIndex > 0)
+        // 序号在前：`/远程指令 1 /time noon` —— 指令内容本身可能带数字参数，序号放最后会有歧义。
+        (int index, List<string> parts) = CommandHelpers.ParseLeadingIndex(args);
+        if (parts.Count == 0)
         {
-            index = parsedIndex;
-            parts.RemoveAt(parts.Count - 1);
+            await CommandHelpers.ReplyAsync(args,
+                "# 🍥 远程指令\n> 缺少要执行的指令内容\n> 例如：`/远程指令 1 /time noon`");
+            return;
         }
 
         ServerSession? session = await CommandHelpers.ResolveServerAsync(args, index);

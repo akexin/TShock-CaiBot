@@ -111,7 +111,7 @@ public sealed class SessionHub
             }
             catch (Exception ex)
             {
-                Message.Yellow($"[CaiBotWindy] 发送解绑通知失败（可忽略）: {ex.Message}");
+                Message.Yellow($"[{App.BotName}] 发送解绑通知失败（可忽略）: {ex.Message}");
             }
 
             await session.CloseAsync("机器人主动解绑");

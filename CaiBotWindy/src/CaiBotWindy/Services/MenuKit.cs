@@ -143,7 +143,7 @@ public static class MenuKit
     /// 多服务器时列出「命令 + 序号」的写法，让用户知道后面能跟数字选服务器。
     /// 只有一台服务器时返回空串（没必要）。
     /// </summary>
-    public static string ServerIndexHint(IReadOnlyList<ServerRecord> servers, string command)
+    public static string ServerIndexHint(IReadOnlyList<ServerRecord> servers, string command, bool indexFirst = false)
     {
         if (servers.Count <= 1)
         {
@@ -151,11 +151,15 @@ public static class MenuKit
         }
 
         StringBuilder builder = new();
-        builder.Append($"\n> **指定服务器**（本群共 {servers.Count} 台，命令后加序号）\n");
+        builder.Append(indexFirst
+            ? $"\n> **指定服务器**（本群共 {servers.Count} 台，序号放在指令前面）\n"
+            : $"\n> **指定服务器**（本群共 {servers.Count} 台，序号放在指令最后）\n");
         foreach (ServerRecord server in servers)
         {
             string name = string.IsNullOrWhiteSpace(server.ServerName) ? "未命名" : server.ServerName;
-            builder.Append($"> `{command} {server.DisplayIndex}`　{name}\n");
+            builder.Append(indexFirst
+                ? $"> `{command} {server.DisplayIndex} <指令>`　{name}\n"
+                : $"> `{command} {server.DisplayIndex}`　{name}\n");
         }
 
         return builder.ToString();

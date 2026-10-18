@@ -6,7 +6,7 @@ TShock（Terraria 服务端）的 QQ 官方机器人项目，包含机器人本�
 
 | 路径 | 说明 |
 | --- | --- |
-| `CaiBotWindy/` | 机器人本体。基于 Windy（QQ 官方机器人 SDK，C# / .NET 10）自建 Bot 端，兼容 CaiBotLite 的全部数据包接口 |
+| `CaiBotWindy/` | 机器人本体（对外名 **xuejibot**，由 `App.BotName` 定义；目录与程序集仍叫 CaiBotWindy）。基于 Windy（QQ 官方机器人 SDK，C# / .NET 10）自建 Bot 端，兼容 CaiBotLite 的全部数据包接口 |
 | `adapter/` | TShock 侧适配插件。上游 CaiBotLite 的本地化改造版（`BotServerUrl` 改为配置项、按需 TLS、修复多帧解析），并新增 `server_file` 包以支持机器人点播服务端文件；附本地编译工程 |
 | `CaiBotWindy/deploy/Asserts/` | 图鉴素材（物品 / 生物 / 弹幕 / 增益图标、世界图标、Boss 头像、字体、背景图） |
 | `Start-WindyBot.bat` | 机器人启动脚本 |

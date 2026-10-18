@@ -143,16 +143,19 @@ public static class MergedCommands
 
     private const string MapUsage =
         "# 🍥 地图\n" +
-        "> 用法：`/地图 <子命令>`\n" +
+        "> 用法：`/地图 <子命令> [服务器序号]`\n" +
         "- `预览`　世界地图预览图\n" +
         "- `下载`　下载世界文件 `.wld`\n" +
         "- `小地图`　下载小地图文件 `.tmap`\n\n" +
+        "> 例：`/地图 下载 2`（取第 2 台服务器）\n" +
         "> 旧写法（`/查看地图`、`/下载地图`、`/下载小地图`）仍然可用。";
 
     [Command("地图", "地图相关（预览 | 下载 | 小地图）", MessageScene.Group, "dt", "mapkit", "地图工具")]
     [Command("地图", "地图相关（预览 | 下载 | 小地图）", MessageScene.GroupAt, "dt", "mapkit", "地图工具")]
     public static async Task MapAsync(CommandArgs args)
     {
+        // 聚合指令：/地图 <子命令> [服务器序号]。序号放在整条指令最后，
+        // 剩余参数原样转发给下游指令，由下游按末尾规则解析序号。
         string[] rest = Rest(args, 1);
         string sub = Sub(args);
 

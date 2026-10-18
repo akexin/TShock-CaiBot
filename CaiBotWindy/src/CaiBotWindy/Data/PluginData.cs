@@ -298,7 +298,7 @@ public static class DataStore
         {
             // 写失败不抛出：内存里的改动还在，下次写入会重试。
             // 抛出去反而可能打断正在进行的白名单校验。
-            Message.Yellow($"[CaiBotWindy] 保存数据失败（内存改动仍在，稍后重试）: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 保存数据失败（内存改动仍在，稍后重试）: {ex.Message}");
         }
     }
 
@@ -316,7 +316,7 @@ public static class DataStore
         }
         catch (Exception ex)
         {
-            Message.Yellow($"[CaiBotWindy] store.json 解析失败，已回退到空数据: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] store.json 解析失败，已回退到空数据: {ex.Message}");
             return new PluginData();
         }
     }

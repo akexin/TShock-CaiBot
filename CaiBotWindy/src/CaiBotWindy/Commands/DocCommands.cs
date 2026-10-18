@@ -25,7 +25,7 @@ public static class DocCommands
         builder.Append("# 🔗 绑定信息\n");
 
         builder.Append("\n**机器人**\n");
-        builder.Append($"- 名称：CaiBotWindy v{typeof(DocCommands).Assembly.GetName().Version?.ToString(3) ?? "dev"}\n");
+        builder.Append($"- 名称：{App.BotName} v{typeof(DocCommands).Assembly.GetName().Version?.ToString(3) ?? "dev"}\n");
         string appId = App.Config.BotAppId;
         if (!string.IsNullOrEmpty(appId))
         {
@@ -95,7 +95,7 @@ public static class DocCommands
             {
                 await args.Adaptor.SendFile(
                     Encoding.UTF8.GetBytes(UsageDocument),
-                    "CaiBotWindy-使用文档.md",
+                    $"{App.BotName}-使用文档.md",
                     "text/markdown; charset=utf-8");
 
                 await CommandHelpers.ReplyAsync(args,
@@ -243,11 +243,14 @@ public static class DocCommands
         ]),
     ];
 
-    /// <summary>内置使用文档（群里以 .md 文件形式下发）。</summary>
-    private const string UsageDocument = """
-        # CaiBotWindy 使用文档
+    /// <summary>
+    /// 内置使用文档（群里以 .md 文件形式下发）。
+    /// <para>用 <c>%BOT%</c> 占位机器人名，避免改名时要逐处搜替换。</para>
+    /// </summary>
+    private const string UsageDocumentTemplate = """
+        # %BOT% 使用文档
 
-        > 泰拉瑞亚服务器 + QQ 群一体化管理机器人。机器人本体（CaiBotWindy）+ TShock 适配插件（CaiBotLite），
+        > 泰拉瑞亚服务器 + QQ 群一体化管理机器人。机器人本体（%BOT%）+ TShock 适配插件（CaiBotLite），
         > 开源地址：https://github.com/akexin/TShock-CaiBot
 
         ## 一、快速开始
@@ -306,8 +309,10 @@ public static class DocCommands
         /审批入群 <OpenID> <同意|拒绝>              审批入群
         /入群审核 <人工|自动|关闭>                  审核方式（默认人工）
         /禁言 <OpenID> <分钟>                      设置禁言
+        /撤回 [消息ID]                             撤回消息（限 2 分钟内）
+        /踢人 <OpenID> [blacklist]                 移除群成员（可同时拉黑）
         /物品监控 <add|del>                        背包物品超量告警
-        /远程指令 <指令>                           在服务端执行指令
+        /远程指令 <服务器序号> <指令>              在服务端执行指令
         /注册限制 <数量>                           注册上限（默认 2 个 / IP）
         ```
 
@@ -324,20 +329,34 @@ public static class DocCommands
         | `/日志` | `/rz` `/log` `/logs` `/服务端日志` |
         | `/注册` | `/zc` `/register` `/邮箱注册` |
         | `/禁言` | `/jy` `/mute` `/禁言成员` |
+        | `/撤回` | `/ch` `/recall` `/撤回消息` |
+        | `/踢人` | `/tr` `/remove` `/移出群` |
         | `/服务器` | `/fwq` `/server` `/srv` |
         | `/群` | `/q` `/group` |
 
         > 其余指令的别名见 `/菜单`。每条指令都有 2~4 个等价写法。
 
-        ### 多服务器：命令后面加数字
-        群里绑了多台服务器时，序号跟在命令后面：
+        ### 多服务器：序号放在最后
+
+        群里绑了多台服务器时，**服务器序号放在整条指令的最后**：
 
         ```
         /在线 1
-        /在线 2
-        /远程指令 1 /help
-        /远程指令 2 /help
+        /地图 下载 2
+        /查背包 玩家名 2
+        /发文件 tshock/config.json 1
         ```
+
+        不写序号就自动选（只有一台时直接用，多台时提示你补序号）。
+        聚合指令（`/地图`、`/服务器`、`/群` 等）同样是「子命令在前、序号在最后」。
+
+        > **例外**：`/远程指令` 的序号要放在**最前面** —— 因为它的参数是一整条待执行的指令，
+        > 序号放最后会跟指令自身的数字参数混淆。写法是 `/远程指令 <服务器序号> <指令>`：
+        >
+        > ```
+        > /远程指令 1 /help
+        > /远程指令 2 /time noon
+        > ```
 
         不带序号时，多数指令会作用于**全部服务器**，或在回复里列出可选序号。
 
@@ -363,4 +382,7 @@ public static class DocCommands
 
         作者：ak　·　https://github.com/akexin/TShock-CaiBot
         """;
+
+    /// <summary>内置使用文档的实际内容（已把 <c>%BOT%</c> 换成机器人名）。</summary>
+    private static string UsageDocument => UsageDocumentTemplate.Replace("%BOT%", App.BotName);
 }

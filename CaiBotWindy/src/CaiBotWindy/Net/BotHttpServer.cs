@@ -70,9 +70,9 @@ public sealed class BotHttpServer
         }
         catch (HttpListenerException ex)
         {
-            Message.Red($"[CaiBotWindy] HTTP 服务启动失败: {ex.Message}");
-            Message.Yellow("[CaiBotWindy] 若为「拒绝访问」，请以管理员身份执行一次：");
-            Message.Yellow($"[CaiBotWindy]   netsh http add urlacl url={config.ListenPrefixes.FirstOrDefault() ?? "http://+:22338/"} user=Everyone");
+            Message.Red($"[{App.BotName}] HTTP 服务启动失败: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 若为「拒绝访问」，请以管理员身份执行一次：");
+            Message.Yellow($"[{App.BotName}]   netsh http add urlacl url={config.ListenPrefixes.FirstOrDefault() ?? "http://+:22338/"} user=Everyone");
             throw;
         }
 
@@ -80,7 +80,7 @@ public sealed class BotHttpServer
         cancellation = new CancellationTokenSource();
         acceptLoop = Task.Run(() => AcceptLoopAsync(cancellation.Token));
 
-        Message.Green($"[CaiBotWindy] 已监听: {string.Join(", ", http.Prefixes)}");
+        Message.Green($"[{App.BotName}] 已监听: {string.Join(", ", http.Prefixes)}");
     }
 
     public async Task StopAsync()
@@ -193,7 +193,7 @@ public sealed class BotHttpServer
                 await WriteJsonAsync(context, 200, new JObject
                 {
                     ["appid"] = config.BotAppId,
-                    ["name"] = "CaiBotWindy",
+                    ["name"] = App.BotName,
                 });
                 return;
             }
@@ -202,7 +202,7 @@ public sealed class BotHttpServer
         }
         catch (Exception ex)
         {
-            Message.Red($"[CaiBotWindy] 处理 {path} 时出错: {ex}");
+            Message.Red($"[{App.BotName}] 处理 {path} 时出错: {ex}");
             TryWriteStatus(context, 500);
         }
     }
@@ -226,7 +226,7 @@ public sealed class BotHttpServer
 
         if (DateTime.UtcNow - record.CreatedAtUtc > TimeSpan.FromMinutes(config.BindCodeLifetimeMinutes))
         {
-            Message.Yellow($"[CaiBotWindy] 绑定码 {code} 已过期（{config.BindCodeLifetimeMinutes} 分钟）。");
+            Message.Yellow($"[{App.BotName}] 绑定码 {code} 已过期（{config.BindCodeLifetimeMinutes} 分钟）。");
             await WriteTextAsync(context, 404, "Not Found", "text/plain; charset=utf-8");
             return;
         }
@@ -235,7 +235,7 @@ public sealed class BotHttpServer
         {
             record.Bound = true;
             DataStore.SaveServerChange();
-            Message.Green($"[CaiBotWindy] 绑定码 {code} 已被服务端换取令牌，群 {record.GroupOpenId}。");
+            Message.Green($"[{App.BotName}] 绑定码 {code} 已被服务端换取令牌，群 {record.GroupOpenId}。");
         }
 
         await WriteJsonAsync(context, 200, new JObject
@@ -313,7 +313,7 @@ public sealed class BotHttpServer
         }
         catch (Exception ex)
         {
-            Message.Red($"[CaiBotWindy] WebSocket 升级失败: {ex.Message}");
+            Message.Red($"[{App.BotName}] WebSocket 升级失败: {ex.Message}");
             TryWriteStatus(context, 500);
             return;
         }
@@ -331,7 +331,7 @@ public sealed class BotHttpServer
         session.Closed += source => hub.Remove(source);
 
         hub.Add(session);
-        Message.Blue($"[CaiBotWindy] 服务端已连接: 群 {groupOpenId} / {serverType.DisplayName()}");
+        Message.Blue($"[{App.BotName}] 服务端已连接: 群 {groupOpenId} / {serverType.DisplayName()}");
 
         try
         {
@@ -340,7 +340,7 @@ public sealed class BotHttpServer
         finally
         {
             hub.Remove(session);
-            Message.Yellow($"[CaiBotWindy] 服务端已断开: 群 {groupOpenId} / {serverType.DisplayName()}");
+            Message.Yellow($"[{App.BotName}] 服务端已断开: 群 {groupOpenId} / {serverType.DisplayName()}");
         }
     }
 
@@ -349,7 +349,7 @@ public sealed class BotHttpServer
     /// </summary>
     private static async Task RejectWebSocketAsync(HttpListenerContext context, int closeCode, string reason)
     {
-        Message.Yellow($"[CaiBotWindy] 拒绝连接（{closeCode}）: {reason}");
+        Message.Yellow($"[{App.BotName}] 拒绝连接（{closeCode}）: {reason}");
 
         if (!context.Request.IsWebSocketRequest)
         {
@@ -372,7 +372,7 @@ public sealed class BotHttpServer
         }
         catch (Exception ex)
         {
-            Message.Red($"[CaiBotWindy] 关闭连接失败: {ex.Message}");
+            Message.Red($"[{App.BotName}] 关闭连接失败: {ex.Message}");
             TryWriteStatus(context, 500);
         }
     }
@@ -516,7 +516,7 @@ public sealed class BotHttpServer
         }
         catch (Exception ex)
         {
-            Message.Yellow($"[CaiBotWindy] 写响应失败: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 写响应失败: {ex.Message}");
         }
         finally
         {

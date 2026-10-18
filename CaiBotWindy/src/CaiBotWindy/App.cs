@@ -10,6 +10,12 @@ namespace CaiBotWindy;
 /// <summary>插件运行时共享状态。命令类为静态类，通过本类访问配置与各服务。</summary>
 public static class App
 {
+    /// <summary>
+    /// 机器人对外显示名。出现在 Windy 插件列表、启动日志、`/绑定信息` 与使用文档里。
+    /// <para>⚠️ QQ 群聊里显示的昵称由 QQ 开放平台的「机器人资料」决定，改这里不会变。</para>
+    /// </summary>
+    public const string BotName = "xuejibot";
+
     public static PluginConfig Config { get; set; } = new();
 
     public static Net.SessionHub Hub { get; } = new();
@@ -69,7 +75,7 @@ public static class App
         }
         catch (Exception ex)
         {
-            Message.Yellow($"[CaiBotWindy] 配置解析失败，已回退到默认配置: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 配置解析失败，已回退到默认配置: {ex.Message}");
             return new PluginConfig();
         }
     }
@@ -91,7 +97,7 @@ public static class App
         }
         catch (Exception ex)
         {
-            Message.Yellow($"[CaiBotWindy] 保存配置失败: {ex.Message}");
+            Message.Yellow($"[{App.BotName}] 保存配置失败: {ex.Message}");
         }
     }
 

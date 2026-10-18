@@ -629,3 +629,67 @@ index 3885681..1b5c2d7 100644
          }
  
          internal void AddEventHandler(string eventType, Func<AdaptorEventArgs, Task> handler)
+diff --git a/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.GroupManageExtra.cs b/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.GroupManageExtra.cs
+new file mode 100644
+--- /dev/null
++++ b/Windy.SDK/Adaptor/QQOfficial/QQOfficialAdaptor.GroupManageExtra.cs
+@@ -0,0 +1,59 @@
++using Newtonsoft.Json.Linq;
++
++namespace Windy.SDK.Adaptor.QQOfficial
++{
++    /// <summary>
++    /// QQ 官方适配器的群管理扩展（消息撤回、成员移除）。
++    ///
++    /// <para>单独成文件是为了让本地改动能以「新增文件」的形式维护在
++    /// <c>docs/windy-sdk-local-changes.patch</c> 里，避免与已有补丁的 hunk 行号冲突。</para>
++    /// </summary>
++    public sealed partial class QQOfficialAdaptor
++    {
++        /// <summary>
++        /// 撤回群聊消息。官方限制：发送超过 2 分钟的消息不可撤回。
++        /// 机器人是群管理员时可撤回成员消息；普通成员只能撤回自己发出的消息。
++        /// </summary>
++        public Task<JObject> RecallGroupMessageAsync(string groupOpenId, string messageId, CancellationToken cancellationToken = default)
++        {
++            ValidateOpenId(groupOpenId, nameof(groupOpenId));
++            if (string.IsNullOrWhiteSpace(messageId))
++            {
++                throw new ArgumentException("消息 ID 不能为空.", nameof(messageId));
++            }
++
++            string route = $"/v2/groups/{Uri.EscapeDataString(groupOpenId)}/messages/{Uri.EscapeDataString(messageId)}";
++            return RequestJsonAsync(HttpMethod.Delete, route, null, cancellationToken);
++        }
++
++        /// <summary>
++        /// 批量移除群成员，单次最多 20 个。该接口为内邀能力，
++        /// 机器人未开通时会返回 11253（应用无接口访问权限）。
++        /// </summary>
++        public Task<JObject> RemoveGroupMembersAsync(string groupOpenId, IEnumerable<string> memberOpenIds, bool addToMemberBlacklist = false, CancellationToken cancellationToken = default)
++        {
++            ValidateOpenId(groupOpenId, nameof(groupOpenId));
++            ArgumentNullException.ThrowIfNull(memberOpenIds);
++
++            string[] ids = memberOpenIds
++                .Where(id => !string.IsNullOrWhiteSpace(id))
++                .Select(id => id.Trim())
++                .Distinct(StringComparer.Ordinal)
++                .Take(20)
++                .ToArray();
++            if (ids.Length == 0)
++            {
++                throw new ArgumentException("至少需要一个成员 OpenID.", nameof(memberOpenIds));
++            }
++
++            JObject payload = new() { ["member_openids"] = new JArray(ids) };
++            if (addToMemberBlacklist)
++            {
++                payload["add_to_member_blacklist"] = true;
++            }
++
++            string route = $"/v2/groups/{Uri.EscapeDataString(groupOpenId)}/batch_remove_members";
++            return RequestJsonAsync(HttpMethod.Post, route, payload, cancellationToken);
++        }
++    }
++}

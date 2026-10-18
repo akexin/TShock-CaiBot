@@ -270,6 +270,110 @@ public static class GroupManageCommands
         }
     }
 
+    // ── 撤回消息 ────────────────────────────────────────────────────────────────
+
+    [Command("撤回", "撤回群消息（无参数=撤回本条指令，或指定消息 ID）", MessageScene.Group, "ch", "recall", "撤回消息")]
+    [Command("撤回", "撤回群消息（无参数=撤回本条指令，或指定消息 ID）", MessageScene.GroupAt, "ch", "recall", "撤回消息")]
+    public static async Task RecallMessageAsync(CommandArgs args)
+    {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
+        string? group = CurrentGroup(args);
+        if (group is null || Qq is not { } qq)
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 该指令只能在 QQ 群内使用");
+            return;
+        }
+
+        string messageId = args.Require(1) ? args.GetOrDefault(0).Trim() : args.Message.MessageId;
+        if (string.IsNullOrWhiteSpace(messageId))
+        {
+            await CommandHelpers.ReplyAsync(args,
+                "# 🍥 撤回消息\n> 用法：`/撤回`（撤回本条指令）或 `/撤回 <消息ID>`\n" +
+                "> 官方限制：只能撤回 **2 分钟内** 的消息，且机器人需为群管理员。");
+            return;
+        }
+
+        try
+        {
+            await qq.RecallGroupMessageAsync(group, messageId);
+            await CommandHelpers.ReplyAsync(args, "# ✅ 已撤回消息");
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[群管理] 撤回消息失败: {ex.Message}");
+            string hint = ex.Message.Contains("40064004") ? "这条消息发送已超过 **2 分钟**，官方不允许撤回。"
+                : ex.Message.Contains("40062003") ? "机器人没有操作权限：需为**群管理员**，且只能撤回群成员或自己发送的消息。"
+                : ex.Message.Contains("40061001") ? "消息 ID 无效，请检查后重试。"
+                : "请确认机器人是群管理员，且消息在 2 分钟时限内。";
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 撤回失败\n> " + hint);
+        }
+    }
+
+    // ── 移除群成员 ──────────────────────────────────────────────────────────────
+
+    [Command("踢人", "移除群成员（可附带 blacklist 同时拉黑）", MessageScene.Group, "tr", "remove", "移出群")]
+    [Command("踢人", "移除群成员（可附带 blacklist 同时拉黑）", MessageScene.GroupAt, "tr", "remove", "移出群")]
+    public static async Task RemoveMemberAsync(CommandArgs args)
+    {
+        if (!await Permissions.RequireAdminAsync(args))
+        {
+            return;
+        }
+
+        string? group = CurrentGroup(args);
+        if (group is null || Qq is not { } qq)
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 该指令只能在 QQ 群内使用");
+            return;
+        }
+
+        if (!args.Require(1))
+        {
+            await CommandHelpers.ReplyAsync(args,
+                "# 🍥 移除群成员\n> 用法：`/踢人 <成员OpenID> [blacklist]`\n" +
+                "> 加上 `blacklist` 会在移除的同时加入群黑名单。\n" +
+                $" > 例：{MenuKit.CmdInput("/踢人 ", "踢人 <成员OpenID>")}");
+            return;
+        }
+
+        string memberOpenId = args.GetOrDefault(0).Trim();
+        bool blacklist = args.Count > 1 &&
+                         args.GetOrDefault(1).Equals("blacklist", StringComparison.OrdinalIgnoreCase);
+
+        try
+        {
+            JObject result = await qq.RemoveGroupMembersAsync(group, [memberOpenId], blacklist);
+            string status = result.Value<string>("remove_members_result") ?? "";
+            if (!string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
+            {
+                await CommandHelpers.ReplyAsync(args, "# ⛔ 移除失败\n> 接口返回：" + result);
+                return;
+            }
+
+            StringBuilder builder = new();
+            builder.Append($"# 👋 已移除 **{memberOpenId}**");
+            if (blacklist)
+            {
+                JArray fail = result["add_to_member_blacklist_fail_openids"] as JArray ?? [];
+                builder.Append(fail.Count == 0 ? "\n> 已同时加入群黑名单。" : "\n> ⚠️ 加入黑名单失败。");
+            }
+
+            await CommandHelpers.ReplyAsync(args, builder.ToString());
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[群管理] 移除群成员失败: {ex.Message}");
+            string hint = ex.Message.Contains("11253")
+                ? "该接口属于**内邀能力**，当前 AppID 尚未开通「移除群成员」权限，需在 QQ 开放平台申请。"
+                : "请确认机器人是群管理员，且成员 OpenID 正确。";
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 移除失败\n> " + hint);
+        }
+    }
+
     // ── 入群自动审批策略 ────────────────────────────────────────────────────────
 
     [Command("审批策略", "入群自动审批策略（列表 | 开启 | 关闭）", MessageScene.Group, "spcl", "strategy", "自动审批")]

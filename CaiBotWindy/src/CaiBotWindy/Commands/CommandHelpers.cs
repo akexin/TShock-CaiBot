@@ -82,7 +82,13 @@ internal static class CommandHelpers
         }
 
         List<ServerRecord> servers = DataStore.GetServers(groupOpenId);
-        return servers.Count <= 1 ? "" : MenuKit.ServerIndexHint(servers, $"/{args.CommandName}");
+        if (servers.Count <= 1)
+        {
+            return "";
+        }
+
+        // /远程指令 是唯一「序号在前」的指令，提示文案得跟着变。
+        return MenuKit.ServerIndexHint(servers, $"/{args.CommandName}", indexFirst: args.CommandName == "远程指令");
     }
 
     /// <summary>
@@ -105,6 +111,32 @@ internal static class CommandHelpers
     public static int ParseServerIndex(CommandArgs args, int index)
     {
         return args.TryGetInt(index, out int value) && value > 0 ? value : 0;
+    }
+
+    /// <summary>
+    /// 解析「序号在前」的写法 —— 仅 <c>/远程指令</c> 使用，因为它的参数是一整条待执行的指令，
+    /// 序号放最后会跟指令自身的参数混淆（<c>/远程指令 /give 玩家 物品 1</c>）。
+    /// </summary>
+    /// <param name="args">指令参数。</param>
+    /// <returns>序号（0 表示自动选择）与剩余参数（即要执行的指令内容）。</returns>
+    public static (int Index, List<string> Remaining) ParseLeadingIndex(CommandArgs args)
+    {
+        List<string> parts = [.. args.Parameters];
+
+        // 只有「首个参数是 1~2 位正整数」且「后面还有内容」时才当序号，
+        // 避免把 `/远程指令 /help` 里恰好叫数字的指令当成服务器序号。
+        if (parts.Count >= 2 && IsServerIndexToken(parts[0]))
+        {
+            return (int.Parse(parts[0]), parts.GetRange(1, parts.Count - 1));
+        }
+
+        return (0, parts);
+    }
+
+    /// <summary>1~2 位纯 ASCII 数字才认作服务器序号。</summary>
+    private static bool IsServerIndexToken(string token)
+    {
+        return token.Length is >= 1 and <= 2 && token.All(char.IsAsciiDigit);
     }
 
     /// <summary>

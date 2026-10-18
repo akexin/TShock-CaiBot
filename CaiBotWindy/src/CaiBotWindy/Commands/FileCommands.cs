@@ -21,8 +21,9 @@ namespace CaiBotWindy.Commands;
 /// 「仅管理员可用」这一层。这是刻意的取舍 —— 在机器人里再维护一份路径白名单，
 /// 服务器换个目录结构就会静默失效，排查成本远高于它挡下的风险。</para>
 ///
-/// <para><b>服务器序号</b>：路径里可能带空格，所以「路径 = 除末尾序号外的全部参数」，
-/// 与 <c>/远程指令</c> 同一套解析习惯：末尾参数长度不超过 2 且是正整数才算序号。</para>
+/// <para><b>服务器序号</b>：统一放在整条指令的最后，写成 <c>/发文件 tshock/config.json 2</c>。
+/// 行内统一规则：末尾参数是 1~2 位正整数才算序号 —— 路径里带空格很常见，
+/// 所以只从最末尾切一个数字出来，其余全部算路径。</para>
 /// </summary>
 public static class FileCommands
 {
@@ -412,17 +413,15 @@ public static class FileCommands
 
     /// <summary>
     /// 把参数拆成「路径 + 可选的末尾服务器序号」。
-    /// 与 <c>/远程指令</c> 同一套规则：末尾参数长度不超过 2 且为正整数时才算序号 ——
-    /// 路径里带空格很常见，反过来（先取序号再看路径）会切错。
+    /// 与 <c>/远程指令</c> 同一套规则：末尾参数是 1~2 位正整数时才算序号 ——
+    /// 路径里带空格很常见，所以只从最末尾切一个数字出来，其余全部算路径。
     /// </summary>
     private static (string Path, int Index) SplitTrailingIndex(CommandArgs args)
     {
         List<string> parts = [.. args.Parameters];
-        int index = 0;
-
-        if (parts.Count >= 2 && parts[^1].Length <= 2 && int.TryParse(parts[^1], out int parsed) && parsed > 0)
+        int index = CommandHelpers.ParseTrailingIndex(args, 1);
+        if (index > 0)
         {
-            index = parsed;
             parts.RemoveAt(parts.Count - 1);
         }
 

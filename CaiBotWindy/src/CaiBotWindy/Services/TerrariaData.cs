@@ -118,7 +118,7 @@ public static class TerrariaData
         Prefixes = LoadFile<PrefixInfo>("prefix_id.json");
 
         Windy.SDK.Message.Green(
-            $"[CaiBotWindy] 图鉴数据已加载: 物品 {Items.Count} / 生物 {Npcs.Count} / " +
+            $"[{App.BotName}] 图鉴数据已加载: 物品 {Items.Count} / 生物 {Npcs.Count} / " +
             $"弹幕 {Projects.Count} / 增益 {Buffs.Count} / 前缀 {Prefixes.Count}");
     }
 
@@ -127,7 +127,7 @@ public static class TerrariaData
         string path = Path.Combine(dataDirectory, fileName);
         if (!File.Exists(path))
         {
-            Windy.SDK.Message.Yellow($"[CaiBotWindy] 缺少图鉴数据文件: {path}（对应搜索指令将不可用）");
+            Windy.SDK.Message.Yellow($"[{App.BotName}] 缺少图鉴数据文件: {path}（对应搜索指令将不可用）");
             return [];
         }
 
@@ -138,7 +138,7 @@ public static class TerrariaData
         }
         catch (Exception ex)
         {
-            Windy.SDK.Message.Red($"[CaiBotWindy] 读取 {fileName} 失败: {ex.Message}");
+            Windy.SDK.Message.Red($"[{App.BotName}] 读取 {fileName} 失败: {ex.Message}");
             return [];
         }
     }

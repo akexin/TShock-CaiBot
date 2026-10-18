@@ -78,13 +78,13 @@ public sealed class ServerSession
 
                 if (config.Debug)
                 {
-                    Message.Blue($"[CaiBotWindy][{Record.GroupOpenId}] <- {json}");
+                    Message.Blue($"[{App.BotName}][{Record.GroupOpenId}] <- {json}");
                 }
 
                 BotPacket? packet = BotPacket.Parse(json);
                 if (packet is null)
                 {
-                    Message.Red($"[CaiBotWindy] 无法解析服务端数据包: {Trim(json)}");
+                    Message.Red($"[{App.BotName}] 无法解析服务端数据包: {Trim(json)}");
                     continue;
                 }
 
@@ -96,7 +96,7 @@ public sealed class ServerSession
         }
         catch (Exception ex)
         {
-            Message.Red($"[CaiBotWindy] 连接异常（{Record.GroupOpenId}）: {ex.Message}");
+            Message.Red($"[{App.BotName}] 连接异常（{Record.GroupOpenId}）: {ex.Message}");
         }
         finally
         {
@@ -127,7 +127,7 @@ public sealed class ServerSession
             }
             else if (packet.Type == PackageType.Error)
             {
-                Message.Red($"[CaiBotWindy] 服务端返回未匹配的 error 包: {packet.Payload.GetString("error")}");
+                Message.Red($"[{App.BotName}] 服务端返回未匹配的 error 包: {packet.Payload.GetString("error")}");
             }
 
             return;
@@ -159,7 +159,7 @@ public sealed class ServerSession
             default:
                 if (config.Debug)
                 {
-                    Message.Yellow($"[CaiBotWindy] 忽略未预期的包: {packet.Type.ToWire()}");
+                    Message.Yellow($"[{App.BotName}] 忽略未预期的包: {packet.Type.ToWire()}");
                 }
 
                 break;
@@ -179,7 +179,7 @@ public sealed class ServerSession
         DataStore.SaveServerChange();
 
         Message.Green(
-            $"[CaiBotWindy] 服务器已上线: {Record.ServerName} | 群 {Record.GroupOpenId} | " +
+            $"[{App.BotName}] 服务器已上线: {Record.ServerName} | 群 {Record.GroupOpenId} | " +
             $"Terraria {Record.GameVersion} | {Record.CoreVersion} | 适配插件 {Record.PluginVersion} | " +
             $"白名单 {(Record.EnableWhitelist ? "开启" : "关闭")}");
     }
@@ -231,7 +231,7 @@ public sealed class ServerSession
         }
         catch (Exception ex)
         {
-            Message.Red($"[CaiBotWindy] 白名单校验异常: {ex.Message}");
+            Message.Red($"[{App.BotName}] 白名单校验异常: {ex.Message}");
             result = WhitelistResult.NeedLogin;
         }
 
@@ -260,13 +260,13 @@ public sealed class ServerSession
         if (bytes.Length > config.MaxOutgoingFrameBytes)
         {
             Message.Yellow(
-                $"[CaiBotWindy] 警告：发往服务端的 {packet.Type.ToWire()} 包为 {bytes.Length} 字节，" +
+                $"[{App.BotName}] 警告：发往服务端的 {packet.Type.ToWire()} 包为 {bytes.Length} 字节，" +
                 $"超过适配插件单帧 {config.MaxOutgoingFrameBytes} 字节的安全上限，对端可能解析失败。");
         }
 
         if (config.Debug)
         {
-            Message.Blue($"[CaiBotWindy][{Record.GroupOpenId}] -> {json}");
+            Message.Blue($"[{App.BotName}][{Record.GroupOpenId}] -> {json}");
         }
 
         await sendLock.WaitAsync(cancellationToken);
@@ -391,7 +391,7 @@ public sealed class ServerSession
 
             if (accumulated.Length > MaxIncomingBytes)
             {
-                Message.Red("[CaiBotWindy] 单个数据包超过 64MB，已丢弃该连接。");
+                Message.Red($"[{App.BotName}] 单个数据包超过 64MB，已丢弃该连接。");
                 return null;
             }
 
