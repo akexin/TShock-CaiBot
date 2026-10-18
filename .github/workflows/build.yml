@@ -1,0 +1,42 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # refs/ 不入库（上游 Windy 源码 + 本地补丁），换机器必须先重建，否则还原失败。
+      # 固定上游 commit 到补丁生成时的版本，避免上游 main 前进导致 patch 失效。
+      - name: Rebuild refs/ (upstream Windy + local patch)
+        shell: pwsh
+        run: |
+          $upstream = "$env:RUNNER_TEMP\windy"
+          git clone --depth 1 https://github.com/Cjx8848/Windy.git $upstream
+          git -C $upstream fetch --depth 1 origin da40962ae75e8a2f10223dedc0ceb05dc535cd70
+          git -C $upstream checkout da40962ae75e8a2f10223dedc0ceb05dc535cd70
+          New-Item -ItemType Directory -Force CaiBotWindy/refs | Out-Null
+          Copy-Item -Recurse "$upstream\Windy.SDK", "$upstream\Windy" -Destination CaiBotWindy/refs/
+          Remove-Item -Recurse -Force "CaiBotWindy/refs/Windy.SDK/bin", "CaiBotWindy/refs/Windy.SDK/obj", "CaiBotWindy/refs/Windy/bin", "CaiBotWindy/refs/Windy/obj" -ErrorAction SilentlyContinue
+          git apply --directory=CaiBotWindy/refs CaiBotWindy/docs/windy-sdk-local-changes.patch
+
+      - name: Build
+        run: dotnet build CaiBotWindy/CaiBotWindy.slnx -c Release --nologo
+
+      - name: Protocol self-check
+        run: dotnet CaiBotWindy/tests/ProtocolTest/bin/Release/net10.0/ProtocolTest.dll
+
+      - name: Unit tests
+        run: dotnet test CaiBotWindy/tests/CaiBotWindy.Tests/CaiBotWindy.Tests.csproj -c Release --no-build --nologo
