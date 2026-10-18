@@ -22,6 +22,12 @@
     <ProjectReference Include="..\..\refs\Windy.SDK\Windy.SDK.csproj" />
   </ItemGroup>
 
+  <!-- 单元测试要覆盖 internal 的 CommandHelpers（序号解析），单独为测试程序集开可见性，
+       不把内部辅助类提升成 public API。 -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CaiBotWindy.Tests" />
+  </ItemGroup>
+
   <!-- 世界进度卡片渲染（对齐官方 CaiBotLite 的 QueryProcess）：贴图合成 + 中文文字绘制 -->
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="3.119.0" />
