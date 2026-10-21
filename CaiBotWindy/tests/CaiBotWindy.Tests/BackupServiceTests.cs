@@ -101,6 +101,25 @@ public class BackupServiceTests : IDisposable
     }
 
     [Fact]
+    public void Create_KeepsNewest_WhenManyBackupsLandInTheSameSecond()
+    {
+        // 同一秒内的多份备份里，「带随机后缀的那份」文件名并不比另一份大；
+        // 早期实现按文件名排序，会把它当成更旧的删掉/排在后面。这里把这个不变式钉住。
+        string file = Full("data.json");
+
+        for (int i = 0; i < 6; i++)
+        {
+            File.WriteAllText(file, "v" + i);
+            BackupService.Create(file, keepCount: 2);
+        }
+
+        List<string> backups = BackupService.List(file);
+        Assert.Equal(2, backups.Count);
+        Assert.Equal("v5", File.ReadAllText(backups[0]));
+        Assert.Equal("v4", File.ReadAllText(backups[1]));
+    }
+
+    [Fact]
     public void Clear_RemovesAllBackups()
     {
         string file = Full("data.json");

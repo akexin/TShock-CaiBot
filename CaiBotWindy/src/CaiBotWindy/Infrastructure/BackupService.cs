@@ -1,3 +1,5 @@
+using Windy.SDK;
+
 namespace CaiBotWindy.Infrastructure;
 
 /// <summary>
@@ -55,6 +57,12 @@ public static class BackupService
         }
 
         File.Copy(path, target, overwrite: true);
+
+        // File.Copy 会把**源文件**的修改时间带过来。同一秒内的两份备份因此会拿到同一个时间戳，
+        // 排序只能退化成文件名比较 —— 而「带随机后缀的那份」名字更短/更长的字典序并不代表更晚，
+        // 会把新旧顺序颠倒（历史上 CI 就是这么抖的）。这里显式把修改时间改写成「备份发生的时刻」，
+        // 让「谁更新」有唯一且可靠的依据。
+        TryTouch(target);
 
         if (keepCount > 0)
         {
@@ -117,8 +125,9 @@ public static class BackupService
     /// <summary>
     /// 保留最近 <paramref name="keepCount"/> 份，删除更旧的。
     ///
-    /// <para>按「文件名时间戳」而不是「修改时间」排序：复制出来的备份修改时间等于复制时刻，
-    /// 两者通常一致，但手工改动过备份文件时文件名更可靠。</para>
+    /// <para>排序口径与 <see cref="List"/> 完全一致（修改时间优先、文件名兜底）。
+    /// 不能只按文件名排：同一秒内的多份备份里「带随机后缀的那份」名字并不比另一份大，
+    /// 单看字典序可能把新的当旧的删掉。</para>
     /// </summary>
     private static void Prune(string backupDirectory, string stem, string extension, int keepCount)
     {
@@ -129,7 +138,8 @@ public static class BackupService
         {
             all = Directory.GetFiles(backupDirectory, $"{stem}-*{extension}")
                 .Where(file => Path.GetFileName(file).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(file => file, StringComparer.Ordinal)
+                .OrderByDescending(file => new FileInfo(file).LastWriteTimeUtc)
+                .ThenByDescending(file => file, StringComparer.Ordinal)
                 .ToList();
         }
         catch
@@ -147,6 +157,19 @@ public static class BackupService
             {
                 // 删不掉就算了，下次写入会再试。
             }
+        }
+    }
+
+    /// <summary>把备份文件的修改时间改写成「现在」。失败不影响备份本身，只是排序退化为文件名比较。</summary>
+    private static void TryTouch(string path)
+    {
+        try
+        {
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            Message.Yellow($"[{App.BotName}] 备份时间戳写入失败（排序可能不准）: {ex.Message}");
         }
     }
 }
