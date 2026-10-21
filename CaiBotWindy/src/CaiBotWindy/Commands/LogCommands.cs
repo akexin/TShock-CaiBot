@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using CaiBotWindy.Net;
 using CaiBotWindy.Services;
 using Windy.SDK;
 using Windy.SDK.Adaptor;
@@ -11,20 +13,23 @@ namespace CaiBotWindy.Commands;
 /// <summary>
 /// TShock 服务端日志的查看与检索。
 ///
-/// <para>日志目录由配置项 <c>TShockLogDirectory</c> 指定（默认指向同仓库下的 TShock 服务端）。
-/// TShock 每次启动会新开一个 <c>日期_时间.log</c>，所以这里默认读**最新的那个**。</para>
+/// <para><b>日志从哪来</b>：默认（<c>LogSource = auto</c>）优先用**在线服务端**——通过适配插件的
+/// <c>server_file</c> 包把远端日志目录镜像到本地缓存，因此机器人可以和 TShock 不在同一台机器上。
+/// 没有在线服务端时回退到本机 <c>TShockLogDirectory</c>。</para>
+///
+/// <para>TShock 每次启动会新开一个 <c>日期_时间.log</c>，所以这里默认读**最新的那个**。</para>
 ///
 /// <para>分页是倒序的：**第 1 页是最新的若干行** —— 排查问题时几乎总是想看最新的。</para>
 ///
-/// <para>四种查看方式，覆盖「快速扫一眼」到「把整份日志拿走」：
+/// <para>五种查看方式，覆盖「快速扫一眼」到「把整份日志拿走」：
 /// <list type="bullet">
 ///   <item><c>/日志</c> —— 分页扫最新日志；</item>
 ///   <item><c>/日志 区间 起 止</c> —— 只看某一段行号；</item>
 ///   <item><c>/日志 下载 [序号]</c> —— 把某一份完整日志作为群文件发出来；</item>
-///   <item><c>/日志 打包</c> —— 全部历史日志打成一个 zip 发出来。</item>
+///   <item><c>/日志 打包</c> —— 全部历史日志打成一个 zip 发出来；</item>
+///   <item><c>/日志 刷新</c> —— 强制重新拉取远端日志（默认按间隔自动刷新）。</item>
 /// </list>
-/// 后两者走的是「读本地目录 → 发群文件」，与 <c>/日志</c> 读的是同一个目录
-/// （机器人需要与 TShock 同机，或该目录可访问）。要取服务端任意路径的文件，用 <c>/发文件</c>。</para>
+/// 要取服务端任意路径的文件，用 <c>/发文件</c>。</para>
 /// </summary>
 public static class LogCommands
 {
@@ -51,47 +56,87 @@ public static class LogCommands
             return;
         }
 
-        string? directory = ResolveLogDirectory(out string path);
-        if (directory is null)
+        string sub = args.GetOrDefault(0).Trim();
+
+        // 帮助不碰任何数据来源，先挡掉。
+        if (sub is "帮助" or "help" or "?")
         {
-            await CommandHelpers.ReplyAsync(args, MissingDirectoryHint(path));
+            await CommandHelpers.ReplyAsync(args, UsageText());
             return;
         }
 
-        string sub = args.GetOrDefault(0).Trim();
+        bool force = sub is "刷新" or "refresh" or "同步";
+        LogSource? source = await ResolveSourceAsync(args, force);
+        if (source is null)
+        {
+            return;
+        }
 
         switch (sub)
         {
             case "文件" or "files" or "list":
-                await ListFilesAsync(args, directory);
+                await ListFilesAsync(args, source);
                 return;
 
             case "下载" or "发送" or "download":
-                await DownloadAsync(args, directory, args.GetOrDefault(1).Trim());
+                await DownloadAsync(args, source, args.GetOrDefault(1).Trim());
                 return;
 
             case "打包" or "zip" or "全部":
-                await PackAsync(args, directory);
+                await PackAsync(args, source);
                 return;
 
             case "区间" or "部分" or "range":
-                await SliceAsync(args, directory);
+                await SliceAsync(args, source);
                 return;
 
-            case "帮助" or "help" or "?":
-                await CommandHelpers.ReplyAsync(args, UsageText());
+            case "刷新" or "refresh" or "同步":
+                await ReportRefreshedAsync(args, source);
                 return;
         }
 
-        string? file = LatestLogFile(directory);
+        string? file = LatestLogFile(source.Directory);
         if (file is null)
         {
-            await CommandHelpers.ReplyAsync(args, $"# 📜 服务器日志\n> 目录里还没有日志文件：`{directory}`");
+            await CommandHelpers.ReplyAsync(args,
+                $"# 📜 服务器日志\n> 来源：{source.Label}\n> 目录里还没有日志文件：`{source.DisplayDirectory}`");
             return;
         }
 
         int page = int.TryParse(sub, out int parsed) && parsed > 0 ? parsed : 1;
-        await RenderAsync(args, file, page, keyword: null);
+        await RenderAsync(args, source, file, page, keyword: null);
+    }
+
+    /// <summary><c>/日志 刷新</c>：重拉已经在 <see cref="ResolveSourceAsync"/> 里做过，这里只回报结果。</summary>
+    private static async Task ReportRefreshedAsync(CommandArgs args, LogSource source)
+    {
+        FileInfo[] files;
+        try
+        {
+            files = LogFiles(source.Directory);
+        }
+        catch (Exception ex)
+        {
+            await CommandHelpers.ReplyAsync(args, "# ⛔ 读取目录失败\n> " + ex.Message);
+            return;
+        }
+
+        StringBuilder builder = new();
+        builder.Append("# 🔄 日志已刷新\n");
+        builder.Append($"- 来源：{source.Label}\n");
+
+        if (files.Length == 0)
+        {
+            builder.Append($"> 目录里还没有日志文件：`{source.DisplayDirectory}`");
+        }
+        else
+        {
+            builder.Append($"- 共 {files.Length} 份日志\n");
+            builder.Append($"- 最新：`{files[0].Name}`　{LogTime(files[0]):yyyy-MM-dd HH:mm}");
+        }
+
+        await CommandHelpers.ReplyAsync(args, builder.ToString(),
+            MenuKit.Keyboard(("看最新", "/日志"), ("文件列表", "/日志 文件"), ("打包全部", "/日志 打包")));
     }
 
     // ── /日志搜索 <关键词> [页码] ──────────────────────────────────────────────
@@ -105,13 +150,6 @@ public static class LogCommands
             return;
         }
 
-        string? directory = ResolveLogDirectory(out string path);
-        if (directory is null)
-        {
-            await CommandHelpers.ReplyAsync(args, MissingDirectoryHint(path));
-            return;
-        }
-
         if (!args.Require(1))
         {
             await CommandHelpers.ReplyAsync(args,
@@ -122,22 +160,29 @@ public static class LogCommands
             return;
         }
 
-        string keyword = args.GetOrDefault(0).Trim();
-        int page = args.TryGetInt(1, out int parsed) && parsed > 0 ? parsed : 1;
-
-        string? file = LatestLogFile(directory);
-        if (file is null)
+        LogSource? source = await ResolveSourceAsync(args, force: false);
+        if (source is null)
         {
-            await CommandHelpers.ReplyAsync(args, $"# 📜 服务器日志\n> 目录里还没有日志文件：`{directory}`");
             return;
         }
 
-        await RenderAsync(args, file, page, keyword);
+        string keyword = args.GetOrDefault(0).Trim();
+        int page = args.TryGetInt(1, out int parsed) && parsed > 0 ? parsed : 1;
+
+        string? file = LatestLogFile(source.Directory);
+        if (file is null)
+        {
+            await CommandHelpers.ReplyAsync(args,
+                $"# 📜 服务器日志\n> 来源：{source.Label}\n> 目录里还没有日志文件：`{source.DisplayDirectory}`");
+            return;
+        }
+
+        await RenderAsync(args, source, file, page, keyword);
     }
 
     // ── 渲染 ───────────────────────────────────────────────────────────────────
 
-    private static async Task RenderAsync(CommandArgs args, string file, int page, string? keyword)
+    private static async Task RenderAsync(CommandArgs args, LogSource source, string file, int page, string? keyword)
     {
         List<string> all;
         try
@@ -190,6 +235,11 @@ public static class LogCommands
             ? "> 倒序显示，第 1 页最新。筛选用 `/日志搜索 <关键词>`"
             : $"> 倒序显示。换个词搜：`/日志搜索 <关键词>`");
 
+        if (source.Remote)
+        {
+            builder.Append($"\n> 来源：{source.Label}");
+        }
+
         // 翻页按钮：倒序下页码越大越早。
         List<(string Label, string Command)> buttons = [];
         if (current < totalPages)
@@ -219,12 +269,12 @@ public static class LogCommands
         return keyword is null ? $"/日志 {page}" : $"/日志搜索 {keyword} {page}";
     }
 
-    private static async Task ListFilesAsync(CommandArgs args, string directory)
+    private static async Task ListFilesAsync(CommandArgs args, LogSource source)
     {
         FileInfo[] files;
         try
         {
-            files = LogFiles(directory);
+            files = LogFiles(source.Directory);
         }
         catch (Exception ex)
         {
@@ -234,18 +284,19 @@ public static class LogCommands
 
         if (files.Length == 0)
         {
-            await CommandHelpers.ReplyAsync(args, $"# 📜 日志文件\n> 目录里还没有日志：`{directory}`");
+            await CommandHelpers.ReplyAsync(args,
+                $"# 📜 日志文件\n> 来源：{source.Label}\n> 目录里还没有日志：`{source.DisplayDirectory}`");
             return;
         }
 
         StringBuilder builder = new();
         builder.Append($"# 📜 日志文件（{files.Length}）\n");
-        builder.Append("> 按修改时间倒序，序号可直接用来下载：`/日志 下载 <序号>`\n\n");
+        builder.Append("> 按时间倒序，序号可直接用来下载：`/日志 下载 <序号>`\n\n");
 
         for (int i = 0; i < files.Length && i < 15; i++)
         {
             FileInfo file = files[i];
-            builder.Append($"{i + 1}. `{file.Name}`　{file.Length / 1024.0:F1} KB　{file.LastWriteTime:MM-dd HH:mm}\n");
+            builder.Append($"{i + 1}. `{file.Name}`　{file.Length / 1024.0:F1} KB　{LogTime(file):MM-dd HH:mm}\n");
         }
 
         if (files.Length > 15)
@@ -253,11 +304,13 @@ public static class LogCommands
             builder.Append($"\n> 仅显示最近 15 个，共 {files.Length} 个。");
         }
 
-        builder.Append($"\n\n> 目录：`{directory}`");
+        builder.Append($"\n\n> 来源：{source.Label}");
+        builder.Append($"\n> 目录：`{source.DisplayDirectory}`");
         builder.Append($"\n\n> 只取一份：`/日志 下载 <序号>`　全部打包：`/日志 打包`");
 
         await CommandHelpers.ReplyAsync(args, builder.ToString(),
-            MenuKit.Keyboard(("下载最新", "/日志 下载"), ("打包全部", "/日志 打包"), ("返回日志", "/日志")));
+            MenuKit.Keyboard(("下载最新", "/日志 下载"), ("打包全部", "/日志 打包"),
+                ("刷新", "/日志 刷新"), ("返回日志", "/日志")));
     }
 
     // ── 下载 / 打包 / 区间 ─────────────────────────────────────────────────────
@@ -266,9 +319,9 @@ public static class LogCommands
     /// <c>/日志 下载 [序号 | 文件名]</c>：把一整份日志作为群文件发出来。
     /// 不带参数就是最新的那份 —— 排查完问题想把日志交给别人看，这是最直接的路径。
     /// </summary>
-    private static async Task DownloadAsync(CommandArgs args, string directory, string selector)
+    private static async Task DownloadAsync(CommandArgs args, LogSource source, string selector)
     {
-        FileInfo? file = ResolveLogFile(directory, selector, out string error);
+        FileInfo? file = ResolveLogFile(source, selector, out string error);
         if (file is null)
         {
             await CommandHelpers.ReplyAsync(args, error);
@@ -302,18 +355,19 @@ public static class LogCommands
 
         await CommandHelpers.ReplyAsync(args,
             $"# 📜 日志文件\n- 文件：`{file.Name}`\n- 大小：{file.Length / 1024.0:F1} KB\n" +
-            $"- 修改：{file.LastWriteTime:yyyy-MM-dd HH:mm}");
+            $"- 时间：{LogTime(file):yyyy-MM-dd HH:mm}" +
+            (source.Remote ? $"\n- 来源：{source.Label}" : ""));
 
         await args.Adaptor.SendFile(data, file.Name, "text/plain");
     }
 
     /// <summary><c>/日志 打包</c>：把目录下所有 <c>*.log</c> 打成一个 zip 发出来。</summary>
-    private static async Task PackAsync(CommandArgs args, string directory)
+    private static async Task PackAsync(CommandArgs args, LogSource source)
     {
         FileInfo[] files;
         try
         {
-            files = LogFiles(directory);
+            files = LogFiles(source.Directory);
         }
         catch (Exception ex)
         {
@@ -323,7 +377,8 @@ public static class LogCommands
 
         if (files.Length == 0)
         {
-            await CommandHelpers.ReplyAsync(args, $"# 📜 日志文件\n> 目录里还没有日志：`{directory}`");
+            await CommandHelpers.ReplyAsync(args,
+                $"# 📜 日志文件\n> 来源：{source.Label}\n> 目录里还没有日志：`{source.DisplayDirectory}`");
             return;
         }
 
@@ -375,7 +430,7 @@ public static class LogCommands
     /// <c>/日志 区间 &lt;起&gt; &lt;止&gt; [序号 | 文件名]</c>：只看指定行号那一段。
     /// 行号按文件原始顺序（1 开始，含首尾），不做倒序 —— 既然是显式指定区间，就该按原样读。
     /// </summary>
-    private static async Task SliceAsync(CommandArgs args, string directory)
+    private static async Task SliceAsync(CommandArgs args, LogSource source)
     {
         if (args.Parameters.Length < 3
             || !args.TryGetInt(1, out int from)
@@ -389,7 +444,7 @@ public static class LogCommands
             return;
         }
 
-        FileInfo? file = ResolveLogFile(directory, args.GetOrDefault(3).Trim(), out string error);
+        FileInfo? file = ResolveLogFile(source, args.GetOrDefault(3).Trim(), out string error);
         if (file is null)
         {
             await CommandHelpers.ReplyAsync(args, error);
@@ -481,10 +536,27 @@ public static class LogCommands
         return buffer.ToArray();
     }
 
-    /// <summary>目录下的日志文件，按修改时间倒序 —— 序号 1 就是最新的那份。</summary>
+    /// <summary>目录下的日志文件，按时间倒序 —— 序号 1 就是最新的那份。</summary>
     private static FileInfo[] LogFiles(string directory)
     {
-        return [.. new DirectoryInfo(directory).GetFiles("*.log").OrderByDescending(file => file.LastWriteTime)];
+        return [.. new DirectoryInfo(directory).GetFiles("*.log").OrderByDescending(LogTime)];
+    }
+
+    /// <summary>
+    /// 日志的「展示时间」。TShock 的日志名就是启动时间（<c>yyyy-MM-dd_HH-mm-ss.log</c>），
+    /// 优先按文件名解析 —— 跨端镜像解压后 mtime 是打包时刻，只有文件名始终可靠。
+    /// </summary>
+    internal static DateTime LogTime(FileInfo file)
+    {
+        string stem = Path.GetFileNameWithoutExtension(file.Name);
+        return DateTime.TryParseExact(
+            stem,
+            "yyyy-MM-dd_HH-mm-ss",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out DateTime parsed)
+            ? parsed
+            : file.LastWriteTime;
     }
 
     private static string? LatestLogFile(string directory)
@@ -504,14 +576,14 @@ public static class LogCommands
     /// 纯数字按序号（与「文件列表」里的编号一致）；否则按文件名匹配，
     /// 精确匹配失败再退化成「包含」匹配 —— 日志名带时间戳，没人愿意完整敲一遍。
     /// </summary>
-    private static FileInfo? ResolveLogFile(string directory, string selector, out string error)
+    private static FileInfo? ResolveLogFile(LogSource source, string selector, out string error)
     {
         error = "";
 
         FileInfo[] files;
         try
         {
-            files = LogFiles(directory);
+            files = LogFiles(source.Directory);
         }
         catch (Exception ex)
         {
@@ -521,7 +593,7 @@ public static class LogCommands
 
         if (files.Length == 0)
         {
-            error = $"# 📜 日志文件\n> 目录里还没有日志：`{directory}`";
+            error = $"# 📜 日志文件\n> 来源：{source.Label}\n> 目录里还没有日志：`{source.DisplayDirectory}`";
             return null;
         }
 
@@ -562,15 +634,87 @@ public static class LogCommands
         return null;
     }
 
-    /// <summary>解析日志目录；目录不存在时返回 null，并回传解析后的路径便于提示。</summary>
-    private static string? ResolveLogDirectory(out string resolvedPath)
+    /// <summary>
+    /// 日志来源。<see cref="Directory"/> 是实际读取的本地路径（跨端时是镜像缓存目录），
+    /// <see cref="DisplayDirectory"/> 是回显给用户看的位置描述。
+    /// </summary>
+    private sealed record LogSource(string Directory, string Label, bool Remote, string DisplayDirectory);
+
+    /// <summary>
+    /// 解析日志来源。默认优先「在线服务端」（跨机器可用），没有在线连接时回退本机目录。
+    /// 返回 <c>null</c> 表示已经回过一条提示。
+    /// </summary>
+    private static async Task<LogSource?> ResolveSourceAsync(CommandArgs args, bool force)
     {
+        string mode = (App.Config.LogSource ?? "").Trim().ToLowerInvariant();
+        if (mode.Length == 0)
+        {
+            mode = "auto";
+        }
+
+        if (mode is not "local")
+        {
+            ServerSession? session = LiveSession(args);
+            if (session is not null)
+            {
+                string? cacheDir = await RemoteLogMirror.EnsureAsync(args, session, force);
+                if (cacheDir is not null)
+                {
+                    return new LogSource(
+                        cacheDir,
+                        $"服务端 {session.Record.ServerName}（跨端）",
+                        Remote: true,
+                        DisplayDirectory: $"服务端 {session.Record.ServerName} 的日志目录");
+                }
+
+                if (mode is "remote")
+                {
+                    return null;
+                }
+
+                // auto 模式下远端取不到就退回本机，至少让指令还有输出。
+                Message.Yellow($"[{App.BotName}] 跨端取日志失败，已回退到本机目录。");
+            }
+            else if (mode is "remote")
+            {
+                await CommandHelpers.ReplyAsync(args,
+                    "# ⛔ 没有在线服务端\n" +
+                    "> `LogSource = remote` 时必须有服务端连接。\n" +
+                    "> 看看在线情况：`/服务器列表`");
+                return null;
+            }
+        }
+
         string configured = App.Config.TShockLogDirectory;
-        resolvedPath = Path.IsPathRooted(configured)
+        string resolvedPath = Path.IsPathRooted(configured)
             ? configured
             : Path.GetFullPath(Path.Combine(WindyRuntime.BasicPath, configured));
 
-        return Directory.Exists(resolvedPath) ? resolvedPath : null;
+        if (!Directory.Exists(resolvedPath))
+        {
+            await CommandHelpers.ReplyAsync(args, MissingDirectoryHint(resolvedPath));
+            return null;
+        }
+
+        return new LogSource(resolvedPath, "本机目录", Remote: false, DisplayDirectory: resolvedPath);
+    }
+
+    /// <summary>当前群内在线且未关闭的服务端连接；没有则返回 <c>null</c>（不产生任何回复）。</summary>
+    private static ServerSession? LiveSession(CommandArgs args)
+    {
+        if (!App.Ready)
+        {
+            return null;
+        }
+
+        string? groupOpenId = args.Message.GroupId;
+        if (string.IsNullOrEmpty(groupOpenId))
+        {
+            return null;
+        }
+
+        ServerSession? session = App.Hub.FindByGroup(groupOpenId);
+        return session is { IsOpen: true } ? session : null;
     }
 
     private static string MissingDirectoryHint(string path)
@@ -588,7 +732,10 @@ public static class LogCommands
                "> `/日志 文件`　列出全部日志及序号\n" +
                "> `/日志 下载 [序号 | 文件名]`　把一整份日志发到群里\n" +
                "> `/日志 打包`　全部历史日志打成一个 zip\n" +
+               "> `/日志 刷新`　强制重新拉取服务端日志\n" +
                "> `/日志搜索 <关键词> [页码]`　按关键词检索\n\n" +
+               "> 服务端在线时自动从服务端取（机器人可以不在同一台机器上）；\n" +
+               "> 没有在线服务端时读本机 `TShockLogDirectory`。\n" +
                "> 取服务端任意路径的文件：`/发文件 <路径>`";
     }
 }

@@ -75,11 +75,30 @@ public sealed class PluginConfig
     public string StorageDirectory { get; set; } = "Config/CaiBotWindy";
 
     /// <summary>
-    /// TShock 服务端的日志目录（<c>/日志</c> 指令读这里）。
+    /// TShock 服务端的日志目录（<c>/日志</c> 在本机模式下读这里）。
     /// 相对路径按机器人运行目录（<c>CaiBotWindy\deploy\</c>）解析，
     /// 默认值指向同仓库下的 TShock 服务端；机器人单独部署时改成绝对路径或共享目录。
+    /// <para>跨机器部署（机器人所在的机器与 TShock 不是同一台）时不需要改这一项 ——
+    /// 只要服务端在线，<c>/日志</c> 会走适配插件把远端日志目录镜像过来。</para>
     /// </summary>
     public string TShockLogDirectory { get; set; } = "../../TShock-Server/tshock/logs";
+
+    /// <summary>
+    /// <c>/日志</c> 的数据来源：
+    /// <list type="bullet">
+    ///   <item><c>auto</c>（默认）—— 有在线服务端就从服务端镜像（跨机器可用），没有则读本机目录；</item>
+    ///   <item><c>local</c> —— 只读本机 <see cref="TShockLogDirectory"/>，不看服务端；</item>
+    ///   <item><c>remote</c> —— 只从在线服务端取，没有连接时直接提示，不回退本机。</item>
+    /// </list>
+    /// </summary>
+    public string LogSource { get; set; } = "auto";
+
+    /// <summary>
+    /// 跨端镜像的复用时长（秒）。有新日志文件出现时会立即重拉；
+    /// 文件数没变时按这个间隔刷新内容（TShock 一直在往当前日志里写）。
+    /// 设成 0 表示每次都重拉。
+    /// </summary>
+    public int RemoteLogCacheSeconds { get; set; } = 60;
 
     /// <summary>
     /// 入群申请的审核策略。

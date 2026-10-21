@@ -285,6 +285,11 @@ python CaiBotWindy/scripts/fetch_assets.py all \
   "DownloadFileLifetimeMinutes": 10,  // /download/{file_id} 临时文件保留时长
   "AllowRemotePluginDownload": false, // 是否允许非本机访问 GET /plugin/{name}
 
+  // /日志 的数据来源：auto（默认，服务端在线就跨端取）、local（只读本机）、remote（只从服务端取）
+  "LogSource": "auto",
+  "RemoteLogCacheSeconds": 60,        // 跨端日志镜像的复用时长（有新日志文件会立即重拉）
+  "TShockLogDirectory": "../../TShock-Server/tshock/logs", // 本机模式下的日志目录
+
   // 单帧 JSON 软上限。适配插件接收缓冲区只有 1024 字节且只解析最后一帧，
   // 超过会记警告（详见第 12 节）。
   "MaxOutgoingFrameBytes": 1000,
@@ -476,9 +481,16 @@ WebSocket 鉴权：请求头需带 `authorization: Bearer <token>`，`token` 在
 | `/日志 文件` | | 列出全部日志及序号 |
 | `/日志 下载 [序号 \| 文件名]` | | 把一整份日志发到群里 |
 | `/日志 打包` | | 全部历史日志打成一个 zip |
+| `/日志 刷新` | | 强制重新拉取服务端日志 |
 | `/日志搜索 <关键词> [页码]` | `rzss` | 按关键词检索 |
 
-`/日志` 系列读的是配置项 `TShockLogDirectory` 指向的目录（默认指向同仓库下的 TShock），所以机器人需要与该目录同机或可访问；要取服务端任意路径的文件，用 `/发文件`。日志是共享读打开的，TShock 正在写入时也能读。
+**跨机器可用**：只要服务端在线，`/日志` 会通过适配插件的 `server_file` 包把服务端日志目录镜像到本地缓存
+（`cache/remote-logs/<服务器名>-<路径哈希>/`），之后分页、区间、搜索、下载、打包全部在本地完成，
+行为与「机器人与 TShock 同机」完全一致。刷新策略：远端多出一份日志（TShock 重启）立即重拉，
+文件数不变时按 `RemoteLogCacheSeconds` 间隔刷新内容，`/日志 刷新` 随时强制重拉。
+
+没有在线服务端时（或 `LogSource = local`）回退到本机 `TShockLogDirectory`。
+日志一律共享读，TShock 正在写入时也能读；要取服务端任意路径的文件，用 `/发文件`。
 
 ### 白名单
 
